@@ -4,10 +4,14 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
-app.use(express.static('public')); // Serves your index.html and frontend assets
 
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.AI_API_KEY; // Pulls your API key securely from Render
+
+// Serve index.html directly from the root directory (no folders)
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
 
 app.post('/api/chat', async (req, res) => {
     try {
@@ -16,7 +20,6 @@ app.post('/api/chat', async (req, res) => {
             return res.status(400).json({ error: 'Prompt is required' });
         }
 
-        // Example using the Gemini API endpoint
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
