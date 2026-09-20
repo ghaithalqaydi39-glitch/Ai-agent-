@@ -20,7 +20,8 @@ app.post('/api/chat', async (req, res) => {
             return res.status(400).json({ error: 'Prompt is required' });
         }
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
+        // Updated to use the current Gemini 3.8 Flash model endpoint
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -29,11 +30,18 @@ app.post('/api/chat', async (req, res) => {
         });
 
         const data = await response.json();
+        
+        // Log data to Render console if Google returns an error object
+        if (data.error) {
+            console.error('Google API Error:', data.error);
+            return res.status(500).json({ error: data.error.message || 'AI service error' });
+        }
+
         const aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from agent.";
         
         res.json({ reply: aiReply });
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('Server Fetch Error:', error);
         res.status(500).json({ error: 'Failed to fetch AI response' });
     }
 });
