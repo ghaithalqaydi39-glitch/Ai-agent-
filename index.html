@@ -1,72 +1,239 @@
-const express = require('express');
-const cors = require('cors');
-const app = express();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus AI Hub</title>
+    <style>
+        :root {
+            --bg-color: #0b0b0e;
+            --panel-bg: #13131a;
+            --border-color: #22222f;
+            --accent: #a855f7;
+            --accent-glow: rgba(168, 85, 247, 0.3);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-app.use(express.json());
-app.use(cors());
+        /* Sidebar Navigation */
+        sidebar { width: 260px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .logo { font-size: 20px; font-weight: bold; background: linear-gradient(90deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 30px; }
+        .nav-links { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .nav-btn { background: transparent; border: none; color: var(--text-muted); padding: 12px 16px; text-align: left; border-radius: 8px; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px; }
+        .nav-btn:hover, .nav-btn.active { background: rgba(168, 85, 247, 0.1); color: var(--accent); }
 
-const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.AI_API_KEY;
+        /* User Profile Section at bottom of sidebar */
+        .user-box { border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .google-signin-btn { background: #fff; color: #000; border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
+        .user-info { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .signout-link { color: #ef4444; font-size: 12px; cursor: pointer; background: none; border: none; text-align: left; }
 
-// Serve index.html directly from the root directory
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
-});
+        /* Main Content Area */
+        main { flex: 1; display: flex; flex-direction: column; background: var(--bg-color); }
+        .tab-content { display: none; flex: 1; flex-direction: column; height: 100%; overflow: hidden; }
+        .tab-content.active { display: flex; }
 
-// Helper function to retry fetch if Google hits high demand
-async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            const response = await fetch(url, options);
-            const data = await response.json();
-            
-            // If it hits high demand (503), wait and retry
-            if (data.error && data.error.code === 503 && i < retries - 1) {
-                console.warn(`Model busy, retrying in ${delay}ms... (Attempt ${i + 1})`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                continue;
+        /* Chat Tab Styling */
+        .chat-header { padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--panel-bg); font-size: 18px; font-weight: 600; }
+        #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .message { padding: 14px 18px; border-radius: 12px; max-width: 75%; line-height: 1.5; word-break: break-word; font-size: 15px; }
+        .user { background: var(--accent); color: #fff; align-self: flex-end; box-shadow: 0 4px 12px var(--accent-glow); }
+        .ai { background: var(--panel-bg); border: 1px solid var(--border-color); align-self: flex-start; }
+        .input-area { display: flex; padding: 20px; background: var(--panel-bg); border-top: 1px solid var(--border-color); gap: 12px; }
+        input[type="text"], textarea { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: #fff; font-size: 15px; outline: none; }
+        input:focus, textarea:focus { border-color: var(--accent); }
+        button.send-btn { padding: 0 24px; background: var(--accent); border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: #fff; transition: 0.2s; }
+        button.send-btn:hover { opacity: 0.9; }
+
+        /* Other Tabs Placeholder Styling */
+        .p-20 { padding: 30px; }
+        h2 { margin-bottom: 15px; }
+        p { color: var(--text-muted); line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <sidebar>
+        <div>
+            <div class="logo">⚡ Nexus AI Hub</div>
+            <div class="nav-links">
+                <button class="nav-btn active" onclick="switchTab('chat', event)">💬 AI Chat Agent</button>
+                <button class="nav-btn" onclick="switchTab('tools', event)">🛠️ Generator Tools</button>
+                <button class="nav-btn" onclick="switchTab('settings', event)">⚙️ Account & Saved</button>
+            </div>
+        </div>
+
+        <!-- Google Authentication Simulator Box -->
+        <div class="user-box" id="auth-container">
+            <!-- Rendered dynamically by script -->
+        </div>
+    </sidebar>
+
+    <!-- Main Dynamic Tabs -->
+    <main>
+        <!-- TAB 1: CHAT AGENT -->
+        <div id="chat" class="tab-content active">
+            <div class="chat-header">Neural Assistant Workspace</div>
+            <div id="chat-container">
+                <div class="message ai">Hello! I am your AI agent. How can I help you today?</div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Type a message or prompt..." onkeypress="handleKey(event)">
+                <button class="send-btn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <!-- TAB 2: TOOLS -->
+        <div id="tools" class="tab-content">
+            <div class="chat-header">Quick Tools & Prompts</div>
+            <div class="p-20">
+                <h2>Prompt Enhancer</h2>
+                <p>Select quick prompt shortcuts to inject directly into your chat workflow:</p>
+                <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="send-btn" onclick="quickPrompt('Write a clean script module in Luau for Roblox')">Roblox Luau Script</button>
+                    <button class="send-btn" onclick="quickPrompt('Explain how node.js express backend routes work')">Explain Node.js</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: SETTINGS / SAVED PROGRESS -->
+        <div id="settings" class="tab-content">
+            <div class="chat-header">Account & Saved Data</div>
+            <div class="p-20">
+                <h2>Your Progress & Cloud Session</h2>
+                <p id="session-status">Not signed in. Your chats are stored locally on this device session.</p>
+                <div style="margin-top: 20px;">
+                    <button class="send-btn" onclick="clearHistory()" style="background: #ef4444;">Clear Local Chat History</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Tab switching logic
+        function switchTab(tabId, evt) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
+
+        // Persistent User Authentication Simulation
+        function checkAuth() {
+            const user = localStorage.getItem('nexus_user');
+            const authContainer = document.getElementById('auth-container');
+            const statusText = document.getElementById('session-status');
+
+            if (user) {
+                const userData = JSON.parse(user);
+                authContainer.innerHTML = `
+                    <div class="user-info">
+                        <div class="user-avatar">${userData.name[0]}</div>
+                        <div style="overflow:hidden;">
+                            <div style="font-weight:600; white-space:nowrap; text-overflow:ellipsis;">${userData.name}</div>
+                            <div style="font-size:11px; color:var(--text-muted);">${userData.email}</div>
+                        </div>
+                    </div>
+                    <button class="signout-link" onclick="signOut()">Sign Out</button>
+                `;
+                if(statusText) statusText.innerText = `Signed in as ${userData.email}. Progress and chat history are securely saved.`;
+            } else {
+                authContainer.innerHTML = `
+                    <button class="google-signin-btn" onclick="signInWithGoogle()">
+                        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.13 0-5.78-2.11-6.73-4.96H1.2v3.15C3.21 21.34 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.6H1.2C.43 8.15 0 9.89 0 12s.43 3.85 1.2 5.4l4.07-3.16z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.21 2.66 1.2 6.6l4.07 3.15c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
+                        Sign in with Google
+                    </button>
+                `;
+                if(statusText) statusText.innerText = "Not signed in. Sign in with Google to sync preferences.";
             }
-            return data;
-        } catch (err) {
-            if (i === retries - 1) throw err;
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-}
-
-app.post('/api/chat', async (req, res) => {
-    try {
-        const { prompt } = req.body;
-        if (!prompt) {
-            return res.status(400).json({ error: 'Prompt is required' });
         }
 
-        // Using the ultra-stable gemini-1.5-flash endpoint
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
-        const options = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        };
-
-        const data = await fetchWithRetry(url, options);
-        
-        if (data.error) {
-            console.error('Google API Error:', data.error);
-            return res.status(500).json({ error: data.error.message || 'AI service error' });
+        function signInWithGoogle() {
+            const mockUser = {
+                name: "Ghaith Alqaydi",
+                email: "ghaith.user@gmail.com"
+            };
+            localStorage.setItem('nexus_user', JSON.stringify(mockUser));
+            checkAuth();
         }
 
-        const aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from agent.";
-        
-        res.json({ reply: aiReply });
-    } catch (error) {
-        console.error('Server Fetch Error:', error);
-        res.status(500).json({ error: 'Failed to fetch AI response' });
-    }
-});
+        function signOut() {
+            localStorage.removeItem('nexus_user');
+            checkAuth();
+        }
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+        // Chat functionality with local history preservation
+        window.onload = function() {
+            checkAuth();
+            loadChatHistory();
+        }
+
+        function handleKey(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        function quickPrompt(text) {
+            document.getElementById('user-input').value = text;
+            switchTab('chat', { currentTarget: document.querySelectorAll('.nav-btn')[0] });
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const container = document.getElementById('chat-container');
+            const text = input.value.trim();
+            if (!text) return;
+
+            appendMessage(text, 'user');
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: text })
+                });
+                const data = await res.json();
+                const replyText = data.reply || data.error || "No response.";
+                
+                appendMessage(replyText, 'ai');
+            } catch (err) {
+                appendMessage("Error connecting to agent.", 'ai', true);
+            }
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendMessage(text, sender, isError = false) {
+            const container = document.getElementById('chat-container');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}`;
+            if(isError) msgDiv.style.color = "#ef4444";
+            msgDiv.innerText = text;
+            container.appendChild(msgDiv);
+            saveChatHistory();
+        }
+
+        function saveChatHistory() {
+            const container = document.getElementById('chat-container');
+            localStorage.setItem('nexus_chat_history', container.innerHTML);
+        }
+
+        function loadChatHistory() {
+            const saved = localStorage.getItem('nexus_chat_history');
+            if (saved) {
+                document.getElementById('chat-container').innerHTML = saved;
+            }
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('nexus_chat_history');
+            document.getElementById('chat-container').innerHTML = `<div class="message ai">History cleared. How can I help you today?</div>`;
+        }
+    </script>
+</body>
+</html>
