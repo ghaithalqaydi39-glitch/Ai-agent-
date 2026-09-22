@@ -104,44 +104,44 @@ app.post('/api/admin/moderate', (req, res) => {
     let actionResponseText = '';
 
     switch (action) {
-        case 'warn': // Tool 1
+        case 'warn': 
             users[userId].warnings.push(message || 'Violation of terms');
             actionResponseText = `Warned user ID ${userId}`;
             break;
-        case 'kick': // Tool 2
+        case 'kick': 
             users[userId].status = 'kicked';
             actionResponseText = `Kicked user ID ${userId}`;
             break;
-        case 'ban': // Tool 3
+        case 'ban': 
             users[userId].status = 'banned';
             actionResponseText = `Banned user ID ${userId}`;
             break;
-        case 'unban': // Tool 4
+        case 'unban': 
             users[userId].status = 'active';
             users[userId].warnings = [];
             actionResponseText = `Unbanned and cleared records for user ID ${userId}`;
             break;
-        case 'mute': // Tool 5
+        case 'mute': 
             users[userId].muted = true;
             actionResponseText = `Muted user ID ${userId}`;
             break;
-        case 'unmute': // Tool 6
+        case 'unmute': 
             users[userId].muted = false;
             actionResponseText = `Unmuted user ID ${userId}`;
             break;
-        case 'reset_password': // Tool 7
+        case 'reset_password': 
             const tempPass = 'reset_' + Math.random().toString(36).substring(2, 8);
             users[userId].password = tempPass;
             actionResponseText = `Password reset to: ${tempPass}`;
             break;
-        case 'clear_history': // Tool 8
+        case 'clear_history': 
             actionResponseText = `Triggered chat history wipe for user ID ${userId}`;
             break;
-        case 'delete_account': // Tool 9
+        case 'delete_account': 
             delete users[userId];
             actionResponseText = `Permanently deleted account ID ${userId}`;
             break;
-        case 'broadcast': // Tool 10
+        case 'broadcast': 
             const logs = loadData(LOGS_FILE, []);
             logs.unshift({
                 timestamp: new Date().toLocaleString(),
@@ -183,7 +183,7 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1500) {
     }
 }
 
-// CHAT ENDPOINT WITH RESTRICTION AND WARNING CHECKS
+// CHAT ENDPOINT WITH IN-CHAT WARNING BANNER
 app.post('/api/chat', async (req, res) => {
     try {
         const { prompt, userId } = req.body;
@@ -193,31 +193,20 @@ app.post('/api/chat', async (req, res) => {
             const user = users[userId];
             
             if (user.status === 'banned' || user.status === 'kicked' || user.muted) {
-                const logs = loadData(LOGS_FILE, []);
-                logs.unshift({
-                    timestamp: new Date().toLocaleString(),
-                    username: user.username,
-                    userId: user.id,
-                    action: user.muted ? 'Attempted to chat while Muted' : `Attempted to chat while status was: ${user.status}`,
-                    content: prompt
-                });
-                if (logs.length > 50) logs.pop();
-                saveData(LOGS_FILE, logs);
-
                 if (user.status === 'banned') return res.status(403).json({ error: 'Your account is banned.' });
                 if (user.status === 'kicked') return res.status(403).json({ error: 'You have been temporarily kicked.' });
                 if (user.muted) return res.status(403).json({ error: 'Your account is currently muted by an administrator.' });
             }
 
-            // Check if there are active/unacknowledged warnings to pop up
+            // Check if there are active warnings
             if (user.warnings && user.warnings.length > 0) {
                 const latestWarning = user.warnings[user.warnings.length - 1];
-                user.warnings = []; // Clear after delivery so it triggers once
+                user.warnings = []; // Clear after delivery
                 saveData(DB_FILE, users);
                 
                 return res.status(200).json({ 
                     warningPopup: true, 
-                    message: `⚠️ WARNING FROM ADMINISTRATOR:\n\n${latestWarning}` 
+                    message: `⚠️ OFFICIAL WARNING FROM ADMINISTRATOR:\n\n"${latestWarning}"` 
                 });
             }
         }
