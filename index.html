@@ -66,6 +66,7 @@
         .btn-ban { background: #ef4444; color: #fff; }
         .btn-unban { background: #22c55e; color: #fff; }
         .btn-mute { background: #6b7280; color: #fff; }
+        .btn-mod { background: #8b5cf6; color: #fff; }
         .btn-pass { background: #3b82f6; color: #fff; }
         .btn-del { background: #7f1d1d; color: #fff; }
     </style>
@@ -78,7 +79,7 @@
             <div class="nav-links">
                 <button class="nav-btn active" onclick="switchTab('chat', event)">💬 AI Chat Agent</button>
                 <button class="nav-btn" onclick="switchTab('tools', event)">🛠️ Generator Tools</button>
-                <button class="nav-btn" onclick="switchTab('owner-panel', event)">👑 Owner Panel</button>
+                <button class="nav-btn" onclick="switchTab('owner-panel', event)" id="owner-tab-btn" style="display:none;">👑 Admin / Mod Panel</button>
                 <button class="nav-btn" onclick="switchTab('settings', event)">⚙️ Account & Saved</button>
             </div>
         </div>
@@ -110,15 +111,9 @@
         </div>
 
         <div id="owner-panel" class="tab-content">
-            <div class="chat-header">Owner Admin Dashboard (10-Tool Moderation Suite)</div>
+            <div class="chat-header">Admin Control Dashboard</div>
             <div class="p-20">
-                <h2>Advanced User Control Panel</h2>
-                <p>Enter your owner secret password to manage accounts and execute moderation protocols.</p>
-                
-                <div style="margin-top: 15px; display: flex; gap: 10px; max-width: 400px; align-items: center;">
-                    <input type="password" id="owner-secret-input" class="auth-input" placeholder="Owner Secret Password">
-                    <button class="send-btn" onclick="fetchOwnerUsers()">Unlock</button>
-                </div>
+                <div id="panel-heading-info"></div>
                 
                 <div id="broadcast-bar" style="margin-top: 15px; display: none; gap: 10px; max-width: 600px;">
                     <input type="text" id="broadcast-input" class="auth-input" placeholder="Type a global system broadcast message...">
@@ -158,26 +153,37 @@
         function renderAuthUI(errorMsg = '', successMsg = '') {
             const container = document.getElementById('auth-container');
             const statusText = document.getElementById('session-status');
+            const ownerTabBtn = document.getElementById('owner-tab-btn');
             const loggedUser = localStorage.getItem('nexus_username');
             const loggedId = localStorage.getItem('nexus_userid');
+            const role = localStorage.getItem('nexus_role');
 
             if (loggedUser) {
                 container.innerHTML = `
                     <div class="user-info">
-                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;" title="ID: ${loggedId}">👤 ${loggedUser}</span>
+                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;" title="ID: ${loggedId}">👤 ${loggedUser} (${role})</span>
                         <button class="signout-link" onclick="signOut()">Sign Out</button>
                     </div>
                 `;
-                if(statusText) statusText.innerText = `Signed in as ${loggedUser} (ID: ${loggedId}).`;
+                if(statusText) statusText.innerText = `Signed in as ${loggedUser} [Role: ${role}] (ID: ${loggedId}).`;
+                
+                if (role === 'master_admin' || role === 'moderator') {
+                    ownerTabBtn.style.display = 'flex';
+                    fetchOwnerUsers(); // Auto-load admin panel data
+                } else {
+                    ownerTabBtn.style.display = 'none';
+                }
                 return;
             }
+
+            ownerTabBtn.style.display = 'none';
 
             if (currentAuthView === 'signin') {
                 container.innerHTML = `
                     <div style="font-weight:600; font-size:13px; margin-bottom:5px;">Sign In</div>
                     ${successMsg ? `<div class="auth-success">${successMsg}</div>` : ''}
                     ${errorMsg ? `<div class="auth-error">${errorMsg}</div>` : ''}
-                    <input type="text" id="auth-username" class="auth-input" placeholder="Username">
+                    <input type="text" id="auth-username" class="auth-input" placeholder="Username (e.g. MasterOwner)">
                     <input type="password" id="auth-password" class="auth-input" placeholder="Password">
                     <button class="auth-btn" onclick="handleSignIn()">Sign In</button>
                     <button class="auth-toggle" onclick="currentAuthView='signup'; renderAuthUI();">Need an account? Sign Up</button>
@@ -195,114 +201,102 @@
         }
 
         async function fetchOwnerUsers() {
-            const ownerSecret = document.getElementById('owner-secret-input').value;
-            const errorDiv = document.getElementById('owner-error');
+            const adminId = localStorage.getItem('nexus_userid');
             const tableContainer = document.getElementById('owner-table-container');
             const logsContainer = document.getElementById('owner-logs-container');
             const broadcastBar = document.getElementById('broadcast-bar');
-            errorDiv.innerText = '';
-            tableContainer.innerHTML = '';
-            logsContainer.innerHTML = '';
+            const headingInfo = document.getElementById('panel-heading-info');
+            const role = localStorage.getItem('nexus_role');
+
+            headingInfo.innerHTML = `<h2>Manage Users & Security</h2><p>Logged in with <b>${role.toUpperCase()}</b> privileges. No secret keys required.</p>`;
+            broadcastBar.style.display = 'flex';
 
             try {
                 const res = await fetch('/api/admin/users', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ownerSecret })
+                    body: JSON.stringify({ userId: adminId })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
 
-                broadcastBar.style.display = 'flex';
                 const users = data.users;
                 const logs = data.logs || [];
                 const userIds = Object.keys(users);
+                const isMaster = role === 'master_admin';
 
-                if (userIds.length === 0) {
-                    tableContainer.innerHTML = `<h3>Managed Accounts</h3><p>No users registered yet.</p>`;
-                } else {
-                    let html = `
-                        <h3>Managed Accounts (10-Tool Control Suite)</h3>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Account ID</th>
-                                    <th>Username</th>
-                                    <th>Status / Mute</th>
-                                    <th>Warnings</th>
-                                    <th>Moderation Tools</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    for (let userId of userIds) {
-                        const u = users[userId];
-                        const statusColor = u.status === 'banned' ? '#ef4444' : u.status === 'kicked' ? '#ea580c' : '#22c55e';
-                        html += `
+                let html = `
+                    <h3>Registered System Accounts</h3>
+                    <table>
+                        <thead>
                             <tr>
-                                <td><code>${u.id}</code></td>
-                                <td>${u.username}</td>
-                                <td><span style="color:${statusColor}">${u.status}</span> ${u.muted ? '<span style="color:#f59e0b;">(Muted)</span>' : ''}</td>
-                                <td>${u.warnings.length ? u.warnings.join(', ') : 'None'}</td>
-                                <td>
-                                    <button class="mod-btn btn-warn" onclick="moderateUser('${u.id}', 'warn')">1.Warn</button>
-                                    <button class="mod-btn btn-kick" onclick="moderateUser('${u.id}', 'kick')">2.Kick</button>
-                                    ${u.status === 'banned' 
-                                        ? `<button class="mod-btn btn-unban" onclick="moderateUser('${u.id}', 'unban')">4.Unban</button>`
-                                        : `<button class="mod-btn btn-ban" onclick="moderateUser('${u.id}', 'ban')">3.Ban</button>`
-                                    }
-                                    ${u.muted 
-                                        ? `<button class="mod-btn btn-unban" onclick="moderateUser('${u.id}', 'unmute')">6.Unmute</button>`
-                                        : `<button class="mod-btn btn-mute" onclick="moderateUser('${u.id}', 'mute')">5.Mute</button>`
-                                    }
-                                    <button class="mod-btn btn-pass" onclick="moderateUser('${u.id}', 'reset_password')">7.Reset Pass</button>
-                                    <button class="mod-btn btn-warn" onclick="moderateUser('${u.id}', 'clear_history')">8.Wipe Chat</button>
-                                    <button class="mod-btn btn-del" onclick="moderateUser('${u.id}', 'delete_account')">9.Delete</button>
-                                </td>
+                                <th>Account ID</th>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Status / Mute</th>
+                                <th>Warnings</th>
+                                <th>Admin Actions</th>
                             </tr>
-                        `;
-                    }
-                    html += `</tbody></table>`;
-                    tableContainer.innerHTML = html;
+                        </thead>
+                        <tbody>
+                `;
+                for (let userId of userIds) {
+                    const u = users[userId];
+                    const statusColor = u.status === 'banned' ? '#ef4444' : u.status === 'kicked' ? '#ea580c' : '#22c55e';
+                    const roleColor = u.role === 'master_admin' ? '#f59e0b' : u.role === 'moderator' ? '#8b5cf6' : '#9ca3af';
+                    
+                    html += `
+                        <tr>
+                            <td><code>${u.id}</code></td>
+                            <td>${u.username}</td>
+                            <td><span style="color:${roleColor}; font-weight:bold;">${u.role}</span></td>
+                            <td><span style="color:${statusColor}">${u.status}</span> ${u.muted ? '<span style="color:#f59e0b;">(Muted)</span>' : ''}</td>
+                            <td>${u.warnings && u.warnings.length ? u.warnings.join(', ') : 'None'}</td>
+                            <td>
+                                <button class="mod-btn btn-warn" onclick="moderateUser('${u.id}', 'warn')">Warn</button>
+                                <button class="mod-btn btn-kick" onclick="moderateUser('${u.id}', 'kick')">Kick</button>
+                                ${u.status === 'banned' 
+                                    ? `<button class="mod-btn btn-unban" onclick="moderateUser('${u.id}', 'unban')">Unban</button>`
+                                    : `<button class="mod-btn btn-ban" onclick="moderateUser('${u.id}', 'ban')">Ban</button>`
+                                }
+                                ${u.muted 
+                                    ? `<button class="mod-btn btn-unban" onclick="moderateUser('${u.id}', 'unmute')">Unmute</button>`
+                                    : `<button class="mod-btn btn-mute" onclick="moderateUser('${u.id}', 'mute')">Mute</button>`
+                                }
+                                <button class="mod-btn btn-pass" onclick="moderateUser('${u.id}', 'reset_password')">Reset Pass</button>
+                                
+                                ${isMaster && u.id !== 'master_admin_root' ? `
+                                    ${u.role === 'moderator' 
+                                        ? `<button class="mod-btn btn-del" onclick="moderateUser('${u.id}', 'demote_mod')">Demote Mod</button>` 
+                                        : `<button class="mod-btn btn-mod" onclick="moderateUser('${u.id}', 'promote_mod')">Make Mod</button>`
+                                    }
+                                    <button class="mod-btn btn-del" onclick="moderateUser('${u.id}', 'delete_account')">Delete</button>
+                                ` : ''}
+                            </td>
+                        </tr>
+                    `;
                 }
+                html += `</tbody></table>`;
+                tableContainer.innerHTML = html;
 
                 if (logs.length > 0) {
-                    let logHtml = `
-                        <h3>🛡️ Offline Security Logs & Broadcast History (Tool 10)</h3>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>User</th>
-                                    <th>Event Action</th>
-                                    <th>Content / Details</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
+                    let logHtml = `<h3>🛡️ Security Audit Logs</h3><table><thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody>`;
                     for (let log of logs) {
-                        logHtml += `
-                            <tr>
-                                <td>${log.timestamp}</td>
-                                <td><strong>${log.username}</strong></td>
-                                <td><span style="color: #ef4444;">${log.action}</span></td>
-                                <td>${log.content}</td>
-                            </tr>
-                        `;
+                        logHtml += `<tr><td>${log.timestamp}</td><td><strong>${log.username}</strong></td><td><span style="color: #ef4444;">${log.action}</span></td><td>${log.content}</td></tr>`;
                     }
                     logHtml += `</tbody></table>`;
                     logsContainer.innerHTML = logHtml;
                 } else {
-                    logsContainer.innerHTML = `<h3>🛡️ Offline Security Logs</h3><p>No activity recorded yet.</p>`;
+                    logsContainer.innerHTML = `<h3>🛡️ Security Audit Logs</h3><p>No activity logged yet.</p>`;
                 }
 
             } catch (err) {
-                errorDiv.innerText = err.message;
+                document.getElementById('owner-error').innerText = err.message;
             }
         }
 
         async function triggerBroadcast() {
-            const ownerSecret = document.getElementById('owner-secret-input').value;
+            const adminId = localStorage.getItem('nexus_userid');
             const message = document.getElementById('broadcast-input').value;
             if (!message) return alert('Please type a broadcast message.');
 
@@ -310,7 +304,7 @@
                 const res = await fetch('/api/admin/moderate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ownerSecret, action: 'broadcast', message })
+                    body: JSON.stringify({ adminId, action: 'broadcast', message })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
@@ -323,11 +317,11 @@
             }
         }
 
-        async function moderateUser(userId, action) {
-            const ownerSecret = document.getElementById('owner-secret-input').value;
+        async function moderateUser(targetUserId, action) {
+            const adminId = localStorage.getItem('nexus_userid');
             let message = '';
             if (action === 'warn') {
-                message = prompt(`Enter warning message for user ID ${userId}:`);
+                message = prompt(`Enter warning message for user ID ${targetUserId}:`);
                 if (!message) return;
             }
 
@@ -335,7 +329,7 @@
                 const res = await fetch('/api/admin/moderate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ownerSecret, userId, action, message })
+                    body: JSON.stringify({ adminId, targetUserId, action, message })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
@@ -380,6 +374,7 @@
 
                 localStorage.setItem('nexus_username', data.username);
                 localStorage.setItem('nexus_userid', data.userId);
+                localStorage.setItem('nexus_role', data.role);
                 renderAuthUI();
             } catch (err) {
                 renderAuthUI(err.message);
@@ -389,6 +384,7 @@
         function signOut() {
             localStorage.removeItem('nexus_username');
             localStorage.removeItem('nexus_userid');
+            localStorage.removeItem('nexus_role');
             currentAuthView = 'signin';
             renderAuthUI();
         }
@@ -436,7 +432,6 @@
                     throw new Error(data.error);
                 }
 
-                // Injects a bright red warning card right into the chat log!
                 if (data.warningPopup) {
                     appendMessage(data.message, 'warning-card');
                 } else if (data.reply) {
