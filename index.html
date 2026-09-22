@@ -434,7 +434,14 @@
                     throw new Error(data.error);
                 }
 
-                appendMessage(data.reply, 'ai');
+                // Pops up immediately on user screen if warned
+                if (data.warningPopup) {
+                    alert(data.message);
+                }
+
+                if (data.reply) {
+                    appendMessage(data.reply, 'ai');
+                }
             } catch (err) {
                 appendMessage(err.message || "Error connecting to agent.", 'ai', true);
             }
