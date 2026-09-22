@@ -11,28 +11,26 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.AI_API_KEY;
 const OWNER_SECRET = process.env.OWNER_SECRET || 'HiddenPulse-Secret-key';
 
-// Persistent storage file path
 const DB_FILE = path.join(__dirname, 'users.json');
+const LOGS_FILE = path.join(__dirname, 'logs.json');
 
-// Load users from disk or initialize empty database
-function loadUsers() {
+function loadData(file, defaultVal) {
     try {
-        if (fs.existsSync(DB_FILE)) {
-            const data = fs.readFileSync(DB_FILE, 'utf8');
+        if (fs.existsSync(file)) {
+            const data = fs.readFileSync(file, 'utf8');
             return JSON.parse(data);
         }
     } catch (err) {
-        console.error('Error reading users database:', err);
+        console.error(`Error reading ${file}:`, err);
     }
-    return {};
+    return defaultVal;
 }
 
-// Save users to disk
-function saveUsers(usersData) {
+function saveData(file, data) {
     try {
-        fs.writeFileSync(DB_FILE, JSON.stringify(usersData, null, 2), 'utf8');
+        fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
     } catch (err) {
-        console.error('Error writing users database:', err);
+        console.error(`Error writing ${file}:`, err);
     }
 }
 
@@ -45,77 +43,124 @@ app.post('/api/signup', (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
     
-    const users = loadUsers();
-    if (users[username]) return res.status(400).json({ error: 'Username already exists' });
+    const users = loadData(DB_FILE, {});
+    for (let id in users) {
+        if (users[id].username === username) {
+            return res.status(400).json({ error: 'Username already exists' });
+        }
+    }
 
-    users[username] = { password, status: 'active', warnings: [] };
-    saveUsers(users);
+    const userId = 'usr_' + Date.now() + Math.random().toString(36).substring(2, 6);
+    users[userId] = { id: userId, username, password, status: 'active', muted: false, warnings: [] };
+    saveData(DB_FILE, users);
     
-    res.json({ message: 'Account created successfully! You can now sign in.' });
+    res.json({ message: `Account created successfully! ID: ${userId}` });
 });
 
 // SIGN IN
 app.post('/api/signin', (req, res) => {
     const { username, password } = req.body;
-    const users = loadUsers();
-    const user = users[username];
-
-    if (!user) return res.status(400).json({ error: 'Account not found' });
-    if (user.status === 'banned') return res.status(403).json({ error: 'This account has been banned by an administrator.' });
+    const users = loadData(DB_FILE, {});
     
-    if (user.status === 'kicked') {
-        user.status = 'active';
-        saveUsers(users);
+    let foundUser = null;
+    for (let id in users) {
+        if (users[id].username === username) {
+            foundUser = users[id];
+            break;
+        }
+    }
+
+    if (!foundUser) return res.status(400).json({ error: 'Account not found' });
+    if (foundUser.status === 'banned') return res.status(403).json({ error: 'This account has been banned by an administrator.' });
+    
+    if (foundUser.status === 'kicked') {
+        foundUser.status = 'active';
+        saveData(DB_FILE, users);
     }
     
-    if (user.password !== password) return res.status(400).json({ error: 'Incorrect password' });
+    if (foundUser.password !== password) return res.status(400).json({ error: 'Incorrect password' });
 
-    res.json({ message: 'Signed in successfully', username });
+    res.json({ message: 'Signed in successfully', username: foundUser.username, userId: foundUser.id, muted: foundUser.muted });
 });
 
-// OWNER ADMIN: View Users
+// OWNER ADMIN: View Users and Logs
 app.post('/api/admin/users', (req, res) => {
     const { ownerSecret } = req.body;
     if (ownerSecret !== OWNER_SECRET) return res.status(403).json({ error: 'Unauthorized: Invalid owner secret' });
 
-    const users = loadUsers();
-    const simplifiedUsers = {};
-    for (let u in users) {
-        simplifiedUsers[u] = {
-            password: users[u].password,
-            status: users[u].status,
-            warnings: users[u].warnings
-        };
-    }
-    res.json({ users: simplifiedUsers });
+    const users = loadData(DB_FILE, {});
+    const logs = loadData(LOGS_FILE, []);
+    res.json({ users, logs });
 });
 
-// OWNER ADMIN: Moderate User
+// OWNER ADMIN: 10 Advanced Moderation Tools Handler
 app.post('/api/admin/moderate', (req, res) => {
-    const { ownerSecret, username, action, message } = req.body;
+    const { ownerSecret, userId, action, message } = req.body;
     if (ownerSecret !== OWNER_SECRET) return res.status(403).json({ error: 'Unauthorized' });
 
-    const users = loadUsers();
-    if (!users[username]) return res.status(404).json({ error: 'User not found' });
+    const users = loadData(DB_FILE, {});
+    if (action !== 'broadcast' && !users[userId]) return res.status(404).json({ error: 'User ID not found' });
 
-    if (action === 'warn') {
-        users[username].warnings.push(message || 'Violation of terms');
-    } else if (action === 'kick') {
-        users[username].status = 'kicked';
-    } else if (action === 'ban') {
-        users[username].status = 'banned';
-    } else if (action === 'unban') {
-        users[username].status = 'active';
-        users[username].warnings = [];
-    } else {
-        return res.status(400).json({ error: 'Invalid moderation action' });
+    let actionResponseText = '';
+
+    switch (action) {
+        case 'warn': // Tool 1
+            users[userId].warnings.push(message || 'Violation of terms');
+            actionResponseText = `Warned user ID ${userId}`;
+            break;
+        case 'kick': // Tool 2
+            users[userId].status = 'kicked';
+            actionResponseText = `Kicked user ID ${userId}`;
+            break;
+        case 'ban': // Tool 3
+            users[userId].status = 'banned';
+            actionResponseText = `Banned user ID ${userId}`;
+            break;
+        case 'unban': // Tool 4
+            users[userId].status = 'active';
+            users[userId].warnings = [];
+            actionResponseText = `Unbanned and cleared records for user ID ${userId}`;
+            break;
+        case 'mute': // Tool 5
+            users[userId].muted = true;
+            actionResponseText = `Muted user ID ${userId}`;
+            break;
+        case 'unmute': // Tool 6
+            users[userId].muted = false;
+            actionResponseText = `Unmuted user ID ${userId}`;
+            break;
+        case 'reset_password': // Tool 7
+            const tempPass = 'reset_' + Math.random().toString(36).substring(2, 8);
+            users[userId].password = tempPass;
+            actionResponseText = `Password reset to: ${tempPass}`;
+            break;
+        case 'clear_history': // Tool 8
+            // Logs system action response for client-side execution cue
+            actionResponseText = `Triggered chat history wipe for user ID ${userId}`;
+            break;
+        case 'delete_account': // Tool 9
+            delete users[userId];
+            actionResponseText = `Permanently deleted account ID ${userId}`;
+            break;
+        case 'broadcast': // Tool 10
+            const logs = loadData(LOGS_FILE, []);
+            logs.unshift({
+                timestamp: new Date().toLocaleString(),
+                username: 'SYSTEM BROADCAST',
+                userId: 'ALL',
+                action: 'Global Broadcast Sent',
+                content: message || 'Notice from Owner'
+            });
+            saveData(LOGS_FILE, logs);
+            return res.json({ message: 'Global broadcast dispatched successfully!' });
+        default:
+            return res.status(400).json({ error: 'Invalid moderation action tool' });
     }
 
-    saveUsers(users);
-    res.json({ message: `Successfully applied ${action} to ${username}` });
+    saveData(DB_FILE, users);
+    res.json({ message: actionResponseText });
 });
 
-// Helper function to retry fetch
 async function fetchWithRetry(url, options, retries = 3, delay = 1500) {
     for (let i = 0; i < retries; i++) {
         try {
@@ -139,15 +184,30 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1500) {
     }
 }
 
-// CHAT ENDPOINT
+// CHAT ENDPOINT WITH RESTRICTION CHECKS
 app.post('/api/chat', async (req, res) => {
     try {
-        const { prompt, username } = req.body;
-        const users = loadUsers();
+        const { prompt, userId } = req.body;
+        const users = loadData(DB_FILE, {});
         
-        if (username && users[username]) {
-            if (users[username].status === 'banned') return res.status(403).json({ error: 'Your account is banned.' });
-            if (users[username].status === 'kicked') return res.status(403).json({ error: 'You have been temporarily kicked.' });
+        if (userId && users[userId]) {
+            const user = users[userId];
+            if (user.status === 'banned' || user.status === 'kicked' || user.muted) {
+                const logs = loadData(LOGS_FILE, []);
+                logs.unshift({
+                    timestamp: new Date().toLocaleString(),
+                    username: user.username,
+                    userId: user.id,
+                    action: user.muted ? 'Attempted to chat while Muted' : `Attempted to chat while status was: ${user.status}`,
+                    content: prompt
+                });
+                if (logs.length > 50) logs.pop();
+                saveData(LOGS_FILE, logs);
+
+                if (user.status === 'banned') return res.status(403).json({ error: 'Your account is banned.' });
+                if (user.status === 'kicked') return res.status(403).json({ error: 'You have been temporarily kicked.' });
+                if (user.muted) return res.status(403).json({ error: 'Your account is currently muted by an administrator.' });
+            }
         }
 
         if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
