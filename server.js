@@ -135,7 +135,6 @@ app.post('/api/admin/moderate', (req, res) => {
             actionResponseText = `Password reset to: ${tempPass}`;
             break;
         case 'clear_history': // Tool 8
-            // Logs system action response for client-side execution cue
             actionResponseText = `Triggered chat history wipe for user ID ${userId}`;
             break;
         case 'delete_account': // Tool 9
@@ -184,7 +183,7 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1500) {
     }
 }
 
-// CHAT ENDPOINT WITH RESTRICTION CHECKS
+// CHAT ENDPOINT WITH RESTRICTION AND WARNING CHECKS
 app.post('/api/chat', async (req, res) => {
     try {
         const { prompt, userId } = req.body;
@@ -192,6 +191,7 @@ app.post('/api/chat', async (req, res) => {
         
         if (userId && users[userId]) {
             const user = users[userId];
+            
             if (user.status === 'banned' || user.status === 'kicked' || user.muted) {
                 const logs = loadData(LOGS_FILE, []);
                 logs.unshift({
@@ -207,6 +207,18 @@ app.post('/api/chat', async (req, res) => {
                 if (user.status === 'banned') return res.status(403).json({ error: 'Your account is banned.' });
                 if (user.status === 'kicked') return res.status(403).json({ error: 'You have been temporarily kicked.' });
                 if (user.muted) return res.status(403).json({ error: 'Your account is currently muted by an administrator.' });
+            }
+
+            // Check if there are active/unacknowledged warnings to pop up
+            if (user.warnings && user.warnings.length > 0) {
+                const latestWarning = user.warnings[user.warnings.length - 1];
+                user.warnings = []; // Clear after delivery so it triggers once
+                saveData(DB_FILE, users);
+                
+                return res.status(200).json({ 
+                    warningPopup: true, 
+                    message: `⚠️ WARNING FROM ADMINISTRATOR:\n\n${latestWarning}` 
+                });
             }
         }
 
