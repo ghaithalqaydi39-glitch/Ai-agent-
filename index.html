@@ -17,14 +17,12 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-        /* Sidebar Navigation */
         sidebar { width: 280px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; overflow-y: auto; }
         .logo { font-size: 20px; font-weight: bold; background: linear-gradient(90deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 25px; }
         .nav-links { display: flex; flex-direction: column; gap: 8px; flex: 1; }
         .nav-btn { background: transparent; border: none; color: var(--text-muted); padding: 12px 16px; text-align: left; border-radius: 8px; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px; }
         .nav-btn:hover, .nav-btn.active { background: rgba(168, 85, 247, 0.1); color: var(--accent); }
 
-        /* Auth Form Box in Sidebar */
         .auth-box { border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; flex-direction: column; gap: 10px; }
         .auth-input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: #fff; font-size: 13px; outline: none; }
         .auth-input:focus { border-color: var(--accent); }
@@ -34,16 +32,13 @@
         .auth-error { color: #ef4444; font-size: 11px; text-align: center; }
         .auth-success { color: #22c55e; font-size: 11px; text-align: center; }
 
-        /* User Logged In Info */
         .user-info { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
         .signout-link { color: #ef4444; font-size: 12px; cursor: pointer; background: none; border: none; }
 
-        /* Main Content Area */
         main { flex: 1; display: flex; flex-direction: column; background: var(--bg-color); }
         .tab-content { display: none; flex: 1; flex-direction: column; height: 100%; overflow: hidden; }
         .tab-content.active { display: flex; }
 
-        /* Chat Tab Styling */
         .chat-header { padding: 20px; border-bottom: 1px solid var(--border-color); background: var(--panel-bg); font-size: 18px; font-weight: 600; }
         #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
         .message { padding: 14px 18px; border-radius: 12px; max-width: 75%; line-height: 1.5; word-break: break-word; font-size: 15px; }
@@ -59,16 +54,19 @@
         h2 { margin-bottom: 15px; }
         p { color: var(--text-muted); line-height: 1.6; }
         
-        /* Table for Owner Panel */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; background: var(--panel-bg); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
-        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 13px; }
         th { background: rgba(168, 85, 247, 0.1); color: var(--accent); font-weight: 600; }
-        tr:last-child td { border-bottom: none; }
+        
+        .mod-btn { padding: 4px 8px; border-radius: 4px; border: none; font-size: 11px; font-weight: bold; cursor: pointer; margin-right: 4px; }
+        .btn-warn { background: #f59e0b; color: #fff; }
+        .btn-kick { background: #ea580c; color: #fff; }
+        .btn-ban { background: #ef4444; color: #fff; }
+        .btn-unban { background: #22c55e; color: #fff; }
     </style>
 </head>
 <body>
 
-    <!-- Sidebar Navigation -->
     <sidebar>
         <div>
             <div class="logo">⚡ Nexus AI Hub</div>
@@ -79,16 +77,10 @@
                 <button class="nav-btn" onclick="switchTab('settings', event)">⚙️ Account & Saved</button>
             </div>
         </div>
-
-        <!-- Dynamic Auth Container -->
-        <div class="auth-box" id="auth-container">
-            <!-- Injected via JavaScript -->
-        </div>
+        <div class="auth-box" id="auth-container"></div>
     </sidebar>
 
-    <!-- Main Dynamic Tabs -->
     <main>
-        <!-- TAB 1: CHAT AGENT -->
         <div id="chat" class="tab-content active">
             <div class="chat-header">Neural Assistant Workspace</div>
             <div id="chat-container">
@@ -100,7 +92,6 @@
             </div>
         </div>
 
-        <!-- TAB 2: TOOLS -->
         <div id="tools" class="tab-content">
             <div class="chat-header">Quick Tools & Prompts</div>
             <div class="p-20">
@@ -113,26 +104,23 @@
             </div>
         </div>
 
-        <!-- TAB 3: OWNER PANEL -->
         <div id="owner-panel" class="tab-content">
             <div class="chat-header">Owner Admin Dashboard</div>
             <div class="p-20">
-                <h2>Registered Users Database</h2>
-                <p>Enter your owner secret password to view all user credentials.</p>
+                <h2>User Moderation Control Panel</h2>
+                <p>Enter your owner key (`HiddenPulse-Secret-key`) to manage users.</p>
                 
                 <div style="margin-top: 15px; display: flex; gap: 10px; max-width: 400px;">
                     <input type="password" id="owner-secret-input" class="auth-input" placeholder="Owner Secret Password">
                     <button class="send-btn" onclick="fetchOwnerUsers()">Unlock</button>
                 </div>
                 <div id="owner-error" style="color: #ef4444; font-size: 13px; margin-top: 10px;"></div>
+                <div id="owner-success" style="color: #22c55e; font-size: 13px; margin-top: 10px;"></div>
 
-                <div id="owner-table-container" style="margin-top: 20px;">
-                    <!-- Loaded dynamically -->
-                </div>
+                <div id="owner-table-container" style="margin-top: 20px;"></div>
             </div>
         </div>
 
-        <!-- TAB 4: SETTINGS / SAVED PROGRESS -->
         <div id="settings" class="tab-content">
             <div class="chat-header">Account & Saved Data</div>
             <div class="p-20">
@@ -167,7 +155,7 @@
                         <button class="signout-link" onclick="signOut()">Sign Out</button>
                     </div>
                 `;
-                if(statusText) statusText.innerText = `Signed in as ${loggedUser}. Chat history is saved locally.`;
+                if(statusText) statusText.innerText = `Signed in as ${loggedUser}.`;
                 return;
             }
 
@@ -222,17 +210,29 @@
                         <thead>
                             <tr>
                                 <th>Username</th>
-                                <th>Password</th>
+                                <th>Status</th>
+                                <th>Warnings</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
 
                 for (let username of usernames) {
+                    const u = users[username];
                     html += `
                         <tr>
                             <td>${username}</td>
-                            <td><code>${users[username]}</code></td>
+                            <td><span style="color:${u.status === 'banned' ? '#ef4444' : u.status === 'kicked' ? '#ea580c' : '#22c55e'}">${u.status}</span></td>
+                            <td>${u.warnings.length ? u.warnings.join(', ') : 'None'}</td>
+                            <td>
+                                <button class="mod-btn btn-warn" onclick="moderateUser('${username}', 'warn')">Warn</button>
+                                <button class="mod-btn btn-kick" onclick="moderateUser('${username}', 'kick')">Kick</button>
+                                ${u.status === 'banned' 
+                                    ? `<button class="mod-btn btn-unban" onclick="moderateUser('${username}', 'unban')">Unban</button>`
+                                    : `<button class="mod-btn btn-ban" onclick="moderateUser('${username}', 'ban')">Ban</button>`
+                                }
+                            </td>
                         </tr>
                     `;
                 }
@@ -241,6 +241,30 @@
                 tableContainer.innerHTML = html;
             } catch (err) {
                 errorDiv.innerText = err.message;
+            }
+        }
+
+        async function moderateUser(username, action) {
+            const ownerSecret = document.getElementById('owner-secret-input').value;
+            let message = '';
+            if (action === 'warn') {
+                message = prompt(`Enter warning message for ${username}:`);
+                if (!message) return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/moderate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ownerSecret, username, action, message })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                document.getElementById('owner-success').innerText = data.message;
+                fetchOwnerUsers(); // Refresh table
+            } catch (err) {
+                alert(err.message);
             }
         }
 
@@ -307,6 +331,7 @@
             const input = document.getElementById('user-input');
             const container = document.getElementById('chat-container');
             const text = input.value.trim();
+            const username = localStorage.getItem('nexus_username');
             if (!text) return;
 
             appendMessage(text, 'user');
@@ -317,14 +342,22 @@
                 const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: text })
+                    body: JSON.stringify({ prompt: text, username })
                 });
                 const data = await res.json();
-                const replyText = data.reply || data.error || "No response.";
                 
-                appendMessage(replyText, 'ai');
+                if (!res.ok) {
+                    if (res.status === 403) {
+                        alert(data.error);
+                        signOut();
+                        return;
+                    }
+                    throw new Error(data.error);
+                }
+
+                appendMessage(data.reply, 'ai');
             } catch (err) {
-                appendMessage("Error connecting to agent.", 'ai', true);
+                appendMessage(err.message || "Error connecting to agent.", 'ai', true);
             }
             container.scrollTop = container.scrollHeight;
         }
