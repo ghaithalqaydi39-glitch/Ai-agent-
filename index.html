@@ -108,7 +108,7 @@
             <div class="chat-header">Owner Admin Dashboard</div>
             <div class="p-20">
                 <h2>User Moderation Control Panel</h2>
-                <p>Enter your owner key (`HiddenPulse-Secret-key`) to manage users.</p>
+                <p>Enter your owner secret password to manage users.</p>
                 
                 <div style="margin-top: 15px; display: flex; gap: 10px; max-width: 400px;">
                     <input type="password" id="owner-secret-input" class="auth-input" placeholder="Owner Secret Password">
@@ -262,7 +262,7 @@
                 if (!res.ok) throw new Error(data.error);
 
                 document.getElementById('owner-success').innerText = data.message;
-                fetchOwnerUsers(); // Refresh table
+                fetchOwnerUsers();
             } catch (err) {
                 alert(err.message);
             }
