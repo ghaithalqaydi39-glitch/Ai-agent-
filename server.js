@@ -9,10 +9,21 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.AI_API_KEY;
-const OWNER_SECRET = process.env.OWNER_SECRET || 'HiddenPulse-Secret-key';
 
 const DB_FILE = path.join(__dirname, 'users.json');
 const LOGS_FILE = path.join(__dirname, 'logs.json');
+
+// HARDCODED MASTER ADMIN WITH 50+ PERMISSIONS & ULTIMATE SECURITY
+const MASTER_ADMIN = {
+    id: 'master_admin_root',
+    username: 'MasterOwner',
+    password: 'TheOwner_Gha@2014',
+    role: 'master_admin',
+    status: 'active',
+    muted: false,
+    warnings: [],
+    permissions: Array.from({ length: 55 }, (_, i) => `perm_level_${i + 1}`) // 50+ Hardcoded Permissions
+};
 
 function loadData(file, defaultVal) {
     try {
@@ -34,6 +45,14 @@ function saveData(file, data) {
     }
 }
 
+// Ensure database always has the Master Admin embedded
+function ensureMasterAccount() {
+    const users = loadData(DB_FILE, {});
+    users[MASTER_ADMIN.id] = MASTER_ADMIN;
+    saveData(DB_FILE, users);
+}
+ensureMasterAccount();
+
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
 });
@@ -51,15 +70,16 @@ app.post('/api/signup', (req, res) => {
     }
 
     const userId = 'usr_' + Date.now() + Math.random().toString(36).substring(2, 6);
-    users[userId] = { id: userId, username, password, status: 'active', muted: false, warnings: [] };
+    users[userId] = { id: userId, username, password, role: 'user', status: 'active', muted: false, warnings: [] };
     saveData(DB_FILE, users);
     
     res.json({ message: `Account created successfully! ID: ${userId}` });
 });
 
-// SIGN IN
+// SIGN IN (Supports Master Admin & Regular Users)
 app.post('/api/signin', (req, res) => {
     const { username, password } = req.body;
+    ensureMasterAccount();
     const users = loadData(DB_FILE, {});
     
     let foundUser = null;
@@ -72,83 +92,108 @@ app.post('/api/signin', (req, res) => {
 
     if (!foundUser) return res.status(400).json({ error: 'Account not found' });
     if (foundUser.status === 'banned') return res.status(403).json({ error: 'This account has been banned by an administrator.' });
-    
+    if (foundUser.password !== password) return res.status(400).json({ error: 'Incorrect password' });
+
     if (foundUser.status === 'kicked') {
         foundUser.status = 'active';
         saveData(DB_FILE, users);
     }
-    
-    if (foundUser.password !== password) return res.status(400).json({ error: 'Incorrect password' });
 
-    res.json({ message: 'Signed in successfully', username: foundUser.username, userId: foundUser.id, muted: foundUser.muted });
+    res.json({ 
+        message: 'Signed in successfully', 
+        username: foundUser.username, 
+        userId: foundUser.id, 
+        role: foundUser.role,
+        muted: foundUser.muted,
+        permissionsCount: foundUser.permissions ? foundUser.permissions.length : 0
+    });
 });
 
-// OWNER ADMIN: View Users and Logs
+// ADMIN PANEL: View Users and Logs (Protected by Master or Mod Role)
 app.post('/api/admin/users', (req, res) => {
-    const { ownerSecret } = req.body;
-    if (ownerSecret !== OWNER_SECRET) return res.status(403).json({ error: 'Unauthorized: Invalid owner secret' });
-
+    const { userId } = req.body;
     const users = loadData(DB_FILE, {});
+    
+    if (!users[userId] || (users[userId].role !== 'master_admin' && users[userId].role !== 'moderator')) {
+        return res.status(403).json({ error: 'Unauthorized: Admin or Moderator access required' });
+    }
+
     const logs = loadData(LOGS_FILE, []);
-    res.json({ users, logs });
+    res.json({ users, logs, currentRole: users[userId].role });
 });
 
-// OWNER ADMIN: 10 Advanced Moderation Tools Handler
+// MODERATION ACTIONS (Master Admin can do all 10 tools + manage mods; Moderators have restricted privileges)
 app.post('/api/admin/moderate', (req, res) => {
-    const { ownerSecret, userId, action, message } = req.body;
-    if (ownerSecret !== OWNER_SECRET) return res.status(403).json({ error: 'Unauthorized' });
-
+    const { adminId, targetUserId, action, message } = req.body;
     const users = loadData(DB_FILE, {});
-    if (action !== 'broadcast' && !users[userId]) return res.status(404).json({ error: 'User ID not found' });
+
+    if (!users[adminId] || (users[adminId].role !== 'master_admin' && users[adminId].role !== 'moderator')) {
+        return res.status(403).json({ error: 'Unauthorized action' });
+    }
+
+    const isAdmin = users[adminId].role === 'master_admin';
+
+    // Only Master Admin can promote/demote moderators or delete accounts
+    if ((action === 'promote_mod' || action === 'demote_mod' || action === 'delete_account') && !isAdmin) {
+        return res.status(403).json({ error: 'Permission denied: Only the Master Admin can modify roles or delete accounts.' });
+    }
+
+    if (action !== 'broadcast' && !users[targetUserId]) return res.status(404).json({ error: 'Target user ID not found' });
 
     let actionResponseText = '';
 
     switch (action) {
-        case 'warn': 
-            users[userId].warnings.push(message || 'Violation of terms');
-            actionResponseText = `Warned user ID ${userId}`;
+        case 'warn':
+            users[targetUserId].warnings.push(message || 'Violation of terms');
+            actionResponseText = `Warned user ID ${targetUserId}`;
             break;
-        case 'kick': 
-            users[userId].status = 'kicked';
-            actionResponseText = `Kicked user ID ${userId}`;
+        case 'kick':
+            users[targetUserId].status = 'kicked';
+            actionResponseText = `Kicked user ID ${targetUserId}`;
             break;
-        case 'ban': 
-            users[userId].status = 'banned';
-            actionResponseText = `Banned user ID ${userId}`;
+        case 'ban':
+            users[targetUserId].status = 'banned';
+            actionResponseText = `Banned user ID ${targetUserId}`;
             break;
-        case 'unban': 
-            users[userId].status = 'active';
-            users[userId].warnings = [];
-            actionResponseText = `Unbanned and cleared records for user ID ${userId}`;
+        case 'unban':
+            users[targetUserId].status = 'active';
+            users[targetUserId].warnings = [];
+            actionResponseText = `Unbanned user ID ${targetUserId}`;
             break;
-        case 'mute': 
-            users[userId].muted = true;
-            actionResponseText = `Muted user ID ${userId}`;
+        case 'mute':
+            users[targetUserId].muted = true;
+            actionResponseText = `Muted user ID ${targetUserId}`;
             break;
-        case 'unmute': 
-            users[userId].muted = false;
-            actionResponseText = `Unmuted user ID ${userId}`;
+        case 'unmute':
+            users[targetUserId].muted = false;
+            actionResponseText = `Unmuted user ID ${targetUserId}`;
             break;
-        case 'reset_password': 
+        case 'promote_mod':
+            users[targetUserId].role = 'moderator';
+            actionResponseText = `Promoted user ${users[targetUserId].username} to Moderator!`;
+            break;
+        case 'demote_mod':
+            users[targetUserId].role = 'user';
+            actionResponseText = `Demoted moderator ${users[targetUserId].username} back to regular User.`;
+            break;
+        case 'reset_password':
             const tempPass = 'reset_' + Math.random().toString(36).substring(2, 8);
-            users[userId].password = tempPass;
+            users[targetUserId].password = tempPass;
             actionResponseText = `Password reset to: ${tempPass}`;
             break;
-        case 'clear_history': 
-            actionResponseText = `Triggered chat history wipe for user ID ${userId}`;
+        case 'delete_account':
+            if (targetUserId === MASTER_ADMIN.id) return res.status(400).json({ error: 'Cannot delete Master Admin' });
+            delete users[targetUserId];
+            actionResponseText = `Permanently deleted account ID ${targetUserId}`;
             break;
-        case 'delete_account': 
-            delete users[userId];
-            actionResponseText = `Permanently deleted account ID ${userId}`;
-            break;
-        case 'broadcast': 
+        case 'broadcast':
             const logs = loadData(LOGS_FILE, []);
             logs.unshift({
                 timestamp: new Date().toLocaleString(),
-                username: 'SYSTEM BROADCAST',
-                userId: 'ALL',
+                username: users[adminId].username,
+                userId: adminId,
                 action: 'Global Broadcast Sent',
-                content: message || 'Notice from Owner'
+                content: message || 'System Notice'
             });
             saveData(LOGS_FILE, logs);
             return res.json({ message: 'Global broadcast dispatched successfully!' });
@@ -183,7 +228,7 @@ async function fetchWithRetry(url, options, retries = 3, delay = 1500) {
     }
 }
 
-// CHAT ENDPOINT WITH IN-CHAT WARNING BANNER
+// CHAT ENDPOINT WITH WARNING & BAN CHECK
 app.post('/api/chat', async (req, res) => {
     try {
         const { prompt, userId } = req.body;
@@ -198,10 +243,9 @@ app.post('/api/chat', async (req, res) => {
                 if (user.muted) return res.status(403).json({ error: 'Your account is currently muted by an administrator.' });
             }
 
-            // Check if there are active warnings
             if (user.warnings && user.warnings.length > 0) {
                 const latestWarning = user.warnings[user.warnings.length - 1];
-                user.warnings = []; // Clear after delivery
+                user.warnings = []; 
                 saveData(DB_FILE, users);
                 
                 return res.status(200).json({ 
