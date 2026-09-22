@@ -18,18 +18,25 @@
         body { background: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
         /* Sidebar Navigation */
-        sidebar { width: 260px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
-        .logo { font-size: 20px; font-weight: bold; background: linear-gradient(90deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 30px; }
+        sidebar { width: 280px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; overflow-y: auto; }
+        .logo { font-size: 20px; font-weight: bold; background: linear-gradient(90deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 25px; }
         .nav-links { display: flex; flex-direction: column; gap: 8px; flex: 1; }
         .nav-btn { background: transparent; border: none; color: var(--text-muted); padding: 12px 16px; text-align: left; border-radius: 8px; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px; }
         .nav-btn:hover, .nav-btn.active { background: rgba(168, 85, 247, 0.1); color: var(--accent); }
 
-        /* User Profile Section at bottom of sidebar */
-        .user-box { border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .google-signin-btn { background: #fff; color: #000; border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
-        .user-info { display: flex; align-items: center; gap: 10px; font-size: 14px; }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; }
-        .signout-link { color: #ef4444; font-size: 12px; cursor: pointer; background: none; border: none; text-align: left; }
+        /* Auth Form Box in Sidebar */
+        .auth-box { border-top: 1px solid var(--border-color); padding-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .auth-input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-color); color: #fff; font-size: 13px; outline: none; }
+        .auth-input:focus { border-color: var(--accent); }
+        .auth-btn { width: 100%; background: var(--accent); color: #fff; border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+        .auth-btn:hover { opacity: 0.9; }
+        .auth-toggle { font-size: 12px; color: var(--text-muted); text-align: center; cursor: pointer; text-decoration: underline; background: none; border: none; }
+        .auth-error { color: #ef4444; font-size: 11px; text-align: center; }
+        .auth-success { color: #22c55e; font-size: 11px; text-align: center; }
+
+        /* User Logged In Info */
+        .user-info { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+        .signout-link { color: #ef4444; font-size: 12px; cursor: pointer; background: none; border: none; }
 
         /* Main Content Area */
         main { flex: 1; display: flex; flex-direction: column; background: var(--bg-color); }
@@ -43,15 +50,20 @@
         .user { background: var(--accent); color: #fff; align-self: flex-end; box-shadow: 0 4px 12px var(--accent-glow); }
         .ai { background: var(--panel-bg); border: 1px solid var(--border-color); align-self: flex-start; }
         .input-area { display: flex; padding: 20px; background: var(--panel-bg); border-top: 1px solid var(--border-color); gap: 12px; }
-        input[type="text"], textarea { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: #fff; font-size: 15px; outline: none; }
-        input:focus, textarea:focus { border-color: var(--accent); }
+        input[type="text"] { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: #fff; font-size: 15px; outline: none; }
+        input:focus { border-color: var(--accent); }
         button.send-btn { padding: 0 24px; background: var(--accent); border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: #fff; transition: 0.2s; }
         button.send-btn:hover { opacity: 0.9; }
 
-        /* Other Tabs Placeholder Styling */
-        .p-20 { padding: 30px; }
+        .p-20 { padding: 30px; overflow-y: auto; flex: 1; }
         h2 { margin-bottom: 15px; }
         p { color: var(--text-muted); line-height: 1.6; }
+        
+        /* Table for Owner Panel */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: var(--panel-bg); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        th { background: rgba(168, 85, 247, 0.1); color: var(--accent); font-weight: 600; }
+        tr:last-child td { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -63,13 +75,14 @@
             <div class="nav-links">
                 <button class="nav-btn active" onclick="switchTab('chat', event)">💬 AI Chat Agent</button>
                 <button class="nav-btn" onclick="switchTab('tools', event)">🛠️ Generator Tools</button>
+                <button class="nav-btn" onclick="switchTab('owner-panel', event)">👑 Owner Panel</button>
                 <button class="nav-btn" onclick="switchTab('settings', event)">⚙️ Account & Saved</button>
             </div>
         </div>
 
-        <!-- Google Authentication Simulator Box -->
-        <div class="user-box" id="auth-container">
-            <!-- Rendered dynamically by script -->
+        <!-- Dynamic Auth Container -->
+        <div class="auth-box" id="auth-container">
+            <!-- Injected via JavaScript -->
         </div>
     </sidebar>
 
@@ -100,12 +113,31 @@
             </div>
         </div>
 
-        <!-- TAB 3: SETTINGS / SAVED PROGRESS -->
+        <!-- TAB 3: OWNER PANEL -->
+        <div id="owner-panel" class="tab-content">
+            <div class="chat-header">Owner Admin Dashboard</div>
+            <div class="p-20">
+                <h2>Registered Users Database</h2>
+                <p>Enter your owner secret password to view all user credentials.</p>
+                
+                <div style="margin-top: 15px; display: flex; gap: 10px; max-width: 400px;">
+                    <input type="password" id="owner-secret-input" class="auth-input" placeholder="Owner Secret Password">
+                    <button class="send-btn" onclick="fetchOwnerUsers()">Unlock</button>
+                </div>
+                <div id="owner-error" style="color: #ef4444; font-size: 13px; margin-top: 10px;"></div>
+
+                <div id="owner-table-container" style="margin-top: 20px;">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: SETTINGS / SAVED PROGRESS -->
         <div id="settings" class="tab-content">
             <div class="chat-header">Account & Saved Data</div>
             <div class="p-20">
-                <h2>Your Progress & Cloud Session</h2>
-                <p id="session-status">Not signed in. Your chats are stored locally on this device session.</p>
+                <h2>Your Account & Progress</h2>
+                <p id="session-status">Not signed in. Create an account via the sidebar to save your progress.</p>
                 <div style="margin-top: 20px;">
                     <button class="send-btn" onclick="clearHistory()" style="background: #ef4444;">Clear Local Chat History</button>
                 </div>
@@ -114,7 +146,6 @@
     </main>
 
     <script>
-        // Tab switching logic
         function switchTab(tabId, evt) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -122,53 +153,143 @@
             evt.currentTarget.classList.add('active');
         }
 
-        // Persistent User Authentication Simulation
-        function checkAuth() {
-            const user = localStorage.getItem('nexus_user');
-            const authContainer = document.getElementById('auth-container');
-            const statusText = document.getElementById('session-status');
+        let currentAuthView = 'signin';
 
-            if (user) {
-                const userData = JSON.parse(user);
-                authContainer.innerHTML = `
+        function renderAuthUI(errorMsg = '', successMsg = '') {
+            const container = document.getElementById('auth-container');
+            const statusText = document.getElementById('session-status');
+            const loggedUser = localStorage.getItem('nexus_username');
+
+            if (loggedUser) {
+                container.innerHTML = `
                     <div class="user-info">
-                        <div class="user-avatar">${userData.name[0]}</div>
-                        <div style="overflow:hidden;">
-                            <div style="font-weight:600; white-space:nowrap; text-overflow:ellipsis;">${userData.name}</div>
-                            <div style="font-size:11px; color:var(--text-muted);">${userData.email}</div>
-                        </div>
+                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">👤 ${loggedUser}</span>
+                        <button class="signout-link" onclick="signOut()">Sign Out</button>
                     </div>
-                    <button class="signout-link" onclick="signOut()">Sign Out</button>
                 `;
-                if(statusText) statusText.innerText = `Signed in as ${userData.email}. Progress and chat history are securely saved.`;
+                if(statusText) statusText.innerText = `Signed in as ${loggedUser}. Chat history is saved locally.`;
+                return;
+            }
+
+            if (currentAuthView === 'signin') {
+                container.innerHTML = `
+                    <div style="font-weight:600; font-size:13px; margin-bottom:5px;">Sign In</div>
+                    ${successMsg ? `<div class="auth-success">${successMsg}</div>` : ''}
+                    ${errorMsg ? `<div class="auth-error">${errorMsg}</div>` : ''}
+                    <input type="text" id="auth-username" class="auth-input" placeholder="Username">
+                    <input type="password" id="auth-password" class="auth-input" placeholder="Password">
+                    <button class="auth-btn" onclick="handleSignIn()">Sign In</button>
+                    <button class="auth-toggle" onclick="currentAuthView='signup'; renderAuthUI();">Need an account? Sign Up</button>
+                `;
             } else {
-                authContainer.innerHTML = `
-                    <button class="google-signin-btn" onclick="signInWithGoogle()">
-                        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.13 0-5.78-2.11-6.73-4.96H1.2v3.15C3.21 21.34 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.6H1.2C.43 8.15 0 9.89 0 12s.43 3.85 1.2 5.4l4.07-3.16z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.21 2.66 1.2 6.6l4.07 3.15c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
-                        Sign in with Google
-                    </button>
+                container.innerHTML = `
+                    <div style="font-weight:600; font-size:13px; margin-bottom:5px;">Create Account</div>
+                    ${errorMsg ? `<div class="auth-error">${errorMsg}</div>` : ''}
+                    <input type="text" id="auth-username" class="auth-input" placeholder="Username">
+                    <input type="password" id="auth-password" class="auth-input" placeholder="Password">
+                    <button class="auth-btn" onclick="handleSignUp()">Sign Up</button>
+                    <button class="auth-toggle" onclick="currentAuthView='signin'; renderAuthUI();">Already have an account? Sign In</button>
                 `;
-                if(statusText) statusText.innerText = "Not signed in. Sign in with Google to sync preferences.";
             }
         }
 
-        function signInWithGoogle() {
-            const mockUser = {
-                name: "Ghaith Alqaydi",
-                email: "ghaith.user@gmail.com"
-            };
-            localStorage.setItem('nexus_user', JSON.stringify(mockUser));
-            checkAuth();
+        async function fetchOwnerUsers() {
+            const ownerSecret = document.getElementById('owner-secret-input').value;
+            const errorDiv = document.getElementById('owner-error');
+            const tableContainer = document.getElementById('owner-table-container');
+            errorDiv.innerText = '';
+            tableContainer.innerHTML = '';
+
+            try {
+                const res = await fetch('/api/admin/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ownerSecret })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                const users = data.users;
+                const usernames = Object.keys(users);
+
+                if (usernames.length === 0) {
+                    tableContainer.innerHTML = `<p>No users registered yet.</p>`;
+                    return;
+                }
+
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Password</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                for (let username of usernames) {
+                    html += `
+                        <tr>
+                            <td>${username}</td>
+                            <td><code>${users[username]}</code></td>
+                        </tr>
+                    `;
+                }
+
+                html += `</tbody></table>`;
+                tableContainer.innerHTML = html;
+            } catch (err) {
+                errorDiv.innerText = err.message;
+            }
+        }
+
+        async function handleSignUp() {
+            const username = document.getElementById('auth-username').value;
+            const password = document.getElementById('auth-password').value;
+            try {
+                const res = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                
+                currentAuthView = 'signin';
+                renderAuthUI('', data.message);
+            } catch (err) {
+                renderAuthUI(err.message);
+            }
+        }
+
+        async function handleSignIn() {
+            const username = document.getElementById('auth-username').value;
+            const password = document.getElementById('auth-password').value;
+            try {
+                const res = await fetch('/api/signin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                localStorage.setItem('nexus_username', data.username);
+                renderAuthUI();
+            } catch (err) {
+                renderAuthUI(err.message);
+            }
         }
 
         function signOut() {
-            localStorage.removeItem('nexus_user');
-            checkAuth();
+            localStorage.removeItem('nexus_username');
+            currentAuthView = 'signin';
+            renderAuthUI();
         }
 
-        // Chat functionality with local history preservation
         window.onload = function() {
-            checkAuth();
+            renderAuthUI();
             loadChatHistory();
         }
 
