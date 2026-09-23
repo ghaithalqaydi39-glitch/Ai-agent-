@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus AI Hub</title>
+    <title>Nexus AI Hub - Live Workspace</title>
     <style>
         :root {
             --bg-color: #0b0b0e;
@@ -17,8 +17,10 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-        sidebar { width: 280px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; overflow-y: auto; }
-        .logo { font-size: 20px; font-weight: bold; background: linear-gradient(90deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 25px; }
+        sidebar { width: 300px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; overflow-y: auto; }
+        .logo { font-size: 18px; font-weight: bold; background: linear-gradient(90deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+        .domain-notice { font-size: 11px; color: var(--accent); background: rgba(168, 85, 247, 0.1); padding: 8px; border-radius: 6px; margin-bottom: 20px; border: 1px dashed var(--accent); word-break: break-all; }
+        
         .nav-links { display: flex; flex-direction: column; gap: 8px; flex: 1; }
         .nav-btn { background: transparent; border: none; color: var(--text-muted); padding: 12px 16px; text-align: left; border-radius: 8px; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px; }
         .nav-btn:hover, .nav-btn.active { background: rgba(168, 85, 247, 0.1); color: var(--accent); }
@@ -44,6 +46,11 @@
         .message { padding: 14px 18px; border-radius: 12px; max-width: 75%; line-height: 1.5; word-break: break-word; font-size: 15px; }
         .user { background: var(--accent); color: #fff; align-self: flex-end; box-shadow: 0 4px 12px var(--accent-glow); }
         .ai { background: var(--panel-bg); border: 1px solid var(--border-color); align-self: flex-start; }
+        
+        /* Thinking animation indicator */
+        .thinking-bubble { background: var(--panel-bg); border: 1px dashed var(--accent); color: var(--accent); align-self: flex-start; font-style: italic; animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+
         .warning-card { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; align-self: center; width: 100%; text-align: center; font-weight: bold; }
         
         .input-area { display: flex; padding: 20px; background: var(--panel-bg); border-top: 1px solid var(--border-color); gap: 12px; }
@@ -66,8 +73,6 @@
         .btn-ban { background: #ef4444; color: #fff; }
         .btn-unban { background: #22c55e; color: #fff; }
         .btn-mute { background: #6b7280; color: #fff; }
-        .btn-mod { background: #8b5cf6; color: #fff; }
-        .btn-pass { background: #3b82f6; color: #fff; }
         .btn-del { background: #7f1d1d; color: #fff; }
     </style>
 </head>
@@ -75,12 +80,13 @@
 
     <sidebar>
         <div>
-            <div class="logo">⚡ Nexus AI Hub</div>
+            <div class="logo">⚡ Nexus AI Workspace</div>
+            <div class="domain-notice">🔗 Portal: <b>signup/servicename.onrender.com</b></div>
             <div class="nav-links">
-                <button class="nav-btn active" onclick="switchTab('chat', event)">💬 AI Chat Agent</button>
-                <button class="nav-btn" onclick="switchTab('tools', event)">🛠️ Generator Tools</button>
-                <button class="nav-btn" onclick="switchTab('owner-panel', event)" id="owner-tab-btn" style="display:none;">👑 Admin / Mod Panel</button>
-                <button class="nav-btn" onclick="switchTab('settings', event)">⚙️ Account & Saved</button>
+                <button class="nav-btn active" onclick="switchTab('chat', event)">💬 AI Chat</button>
+                <button class="nav-btn" onclick="switchTab('tools', event)">🛠️ Quick Tools</button>
+                <button class="nav-btn" onclick="switchTab('owner-panel', event)" id="owner-tab-btn" style="display:none;">👑 Staff Panel</button>
+                <button class="nav-btn" onclick="switchTab('settings', event)">⚙️ Settings</button>
             </div>
         </div>
         <div class="auth-box" id="auth-container"></div>
@@ -88,9 +94,9 @@
 
     <main>
         <div id="chat" class="tab-content active">
-            <div class="chat-header">Neural Assistant Workspace</div>
+            <div class="chat-header">Interactive Neural Feed</div>
             <div id="chat-container">
-                <div class="message ai">Hello! I am your AI agent. How can I help you today?</div>
+                <div class="message ai">Welcome! Make sure you are signed up via signup/servicename.onrender.com to chat.</div>
             </div>
             <div class="input-area">
                 <input type="text" id="user-input" placeholder="Type a message or prompt..." onkeypress="handleKey(event)">
@@ -99,40 +105,39 @@
         </div>
 
         <div id="tools" class="tab-content">
-            <div class="chat-header">Quick Tools & Prompts</div>
+            <div class="chat-header">Quick Action Shortcuts</div>
             <div class="p-20">
-                <h2>Prompt Enhancer</h2>
-                <p>Select quick prompt shortcuts to inject directly into your chat workflow:</p>
+                <h2>Boost Productivity</h2>
+                <p>Click any shortcut to instantly feed it into the chat channel:</p>
                 <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button class="send-btn" onclick="quickPrompt('Write a clean script module in Luau for Roblox')">Roblox Luau Script</button>
-                    <button class="send-btn" onclick="quickPrompt('Explain how node.js express backend routes work')">Explain Node.js</button>
+                    <button class="send-btn" onclick="quickPrompt('Write a clean JavaScript utility function')">JS Utility Function</button>
+                    <button class="send-btn" onclick="quickPrompt('Give me 3 creative business startup ideas')">Startup Ideas</button>
                 </div>
             </div>
         </div>
 
         <div id="owner-panel" class="tab-content">
-            <div class="chat-header">Admin Control Dashboard</div>
+            <div class="chat-header">Staff & Permissions Dashboard</div>
             <div class="p-20">
                 <div id="panel-heading-info"></div>
                 
                 <div id="broadcast-bar" style="margin-top: 15px; display: none; gap: 10px; max-width: 600px;">
-                    <input type="text" id="broadcast-input" class="auth-input" placeholder="Type a global system broadcast message...">
-                    <button class="send-btn" style="background:#3b82f6;" onclick="triggerBroadcast()">Broadcast</button>
+                    <input type="text" id="broadcast-input" class="auth-input" placeholder="Broadcast a global notice...">
+                    <button class="send-btn" style="background:#3b82f6;" onclick="triggerBroadcast()">Send</button>
                 </div>
 
                 <div id="owner-error" style="color: #ef4444; font-size: 13px; margin-top: 10px;"></div>
                 <div id="owner-success" style="color: #22c55e; font-size: 13px; margin-top: 10px;"></div>
 
                 <div id="owner-table-container" style="margin-top: 20px;"></div>
-                <div id="owner-logs-container" style="margin-top: 30px;"></div>
             </div>
         </div>
 
         <div id="settings" class="tab-content">
-            <div class="chat-header">Account & Saved Data</div>
+            <div class="chat-header">Workspace Preferences</div>
             <div class="p-20">
-                <h2>Your Account & Progress</h2>
-                <p id="session-status">Not signed in. Create an account via the sidebar to save your progress.</p>
+                <h2>Account Maintenance</h2>
+                <p id="session-status">Not signed in.</p>
                 <div style="margin-top: 20px;">
                     <button class="send-btn" onclick="clearHistory()" style="background: #ef4444;">Clear Local Chat History</button>
                 </div>
@@ -145,7 +150,7 @@
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            evt.currentTarget.classList.add('active');
+            if (evt) evt.currentTarget.classList.add('active');
         }
 
         let currentAuthView = 'signin';
@@ -161,15 +166,15 @@
             if (loggedUser) {
                 container.innerHTML = `
                     <div class="user-info">
-                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;" title="ID: ${loggedId}">👤 ${loggedUser} (${role})</span>
-                        <button class="signout-link" onclick="signOut()">Sign Out</button>
+                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">👤 ${loggedUser} (${role})</span>
+                        <button class="signout-link" onclick="signOut()">Logout</button>
                     </div>
                 `;
-                if(statusText) statusText.innerText = `Signed in as ${loggedUser} [Role: ${role}] (ID: ${loggedId}).`;
+                if(statusText) statusText.innerText = `Logged in as ${loggedUser} [Role: ${role}]`;
                 
-                if (role === 'master_admin' || role === 'moderator') {
+                if (role === 'administrator' || role === 'moderator') {
                     ownerTabBtn.style.display = 'flex';
-                    fetchOwnerUsers(); // Auto-load admin panel data
+                    fetchOwnerUsers();
                 } else {
                     ownerTabBtn.style.display = 'none';
                 }
@@ -180,22 +185,22 @@
 
             if (currentAuthView === 'signin') {
                 container.innerHTML = `
-                    <div style="font-weight:600; font-size:13px; margin-bottom:5px;">Sign In</div>
+                    <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Sign In</div>
                     ${successMsg ? `<div class="auth-success">${successMsg}</div>` : ''}
                     ${errorMsg ? `<div class="auth-error">${errorMsg}</div>` : ''}
-                    <input type="text" id="auth-username" class="auth-input" placeholder="Username (e.g. MasterOwner)">
+                    <input type="text" id="auth-username" class="auth-input" placeholder="Username">
                     <input type="password" id="auth-password" class="auth-input" placeholder="Password">
                     <button class="auth-btn" onclick="handleSignIn()">Sign In</button>
                     <button class="auth-toggle" onclick="currentAuthView='signup'; renderAuthUI();">Need an account? Sign Up</button>
                 `;
             } else {
                 container.innerHTML = `
-                    <div style="font-weight:600; font-size:13px; margin-bottom:5px;">Create Account</div>
+                    <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Sign Up</div>
                     ${errorMsg ? `<div class="auth-error">${errorMsg}</div>` : ''}
                     <input type="text" id="auth-username" class="auth-input" placeholder="Username">
                     <input type="password" id="auth-password" class="auth-input" placeholder="Password">
-                    <button class="auth-btn" onclick="handleSignUp()">Sign Up</button>
-                    <button class="auth-toggle" onclick="currentAuthView='signin'; renderAuthUI();">Already have an account? Sign In</button>
+                    <button class="auth-btn" onclick="handleSignUp()">Register</button>
+                    <button class="auth-toggle" onclick="currentAuthView='signin'; renderAuthUI();">Have an account? Sign In</button>
                 `;
             }
         }
@@ -203,12 +208,11 @@
         async function fetchOwnerUsers() {
             const adminId = localStorage.getItem('nexus_userid');
             const tableContainer = document.getElementById('owner-table-container');
-            const logsContainer = document.getElementById('owner-logs-container');
             const broadcastBar = document.getElementById('broadcast-bar');
             const headingInfo = document.getElementById('panel-heading-info');
             const role = localStorage.getItem('nexus_role');
 
-            headingInfo.innerHTML = `<h2>Manage Users & Security</h2><p>Logged in with <b>${role.toUpperCase()}</b> privileges. No secret keys required.</p>`;
+            headingInfo.innerHTML = `<h2>User Management</h2><p>Access Level: <b>${role.toUpperCase()}</b></p>`;
             broadcastBar.style.display = 'flex';
 
             try {
@@ -221,37 +225,38 @@
                 if (!res.ok) throw new Error(data.error);
 
                 const users = data.users;
-                const logs = data.logs || [];
-                const userIds = Object.keys(users);
-                const isMaster = role === 'master_admin';
+                const isMaster = role === 'administrator';
 
                 let html = `
-                    <h3>Registered System Accounts</h3>
+                    <h3>System User Directory</h3>
                     <table>
                         <thead>
                             <tr>
-                                <th>Account ID</th>
                                 <th>Username</th>
                                 <th>Role</th>
-                                <th>Status / Mute</th>
-                                <th>Warnings</th>
-                                <th>Admin Actions</th>
+                                <th>Status</th>
+                                <th>Controls</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
-                for (let userId of userIds) {
+                for (let userId of Object.keys(users)) {
                     const u = users[userId];
-                    const statusColor = u.status === 'banned' ? '#ef4444' : u.status === 'kicked' ? '#ea580c' : '#22c55e';
-                    const roleColor = u.role === 'master_admin' ? '#f59e0b' : u.role === 'moderator' ? '#8b5cf6' : '#9ca3af';
+                    const roleColor = u.role === 'administrator' ? '#f59e0b' : u.role === 'moderator' ? '#8b5cf6' : '#9ca3af';
                     
                     html += `
                         <tr>
-                            <td><code>${u.id}</code></td>
                             <td>${u.username}</td>
-                            <td><span style="color:${roleColor}; font-weight:bold;">${u.role}</span></td>
-                            <td><span style="color:${statusColor}">${u.status}</span> ${u.muted ? '<span style="color:#f59e0b;">(Muted)</span>' : ''}</td>
-                            <td>${u.warnings && u.warnings.length ? u.warnings.join(', ') : 'None'}</td>
+                            <td>
+                                ${isMaster && u.id !== 'master_admin_root' ? `
+                                    <select onchange="changeUserRole('${u.id}', this.value)" style="background:#13131a; color:#fff; border:1px solid #22222f; padding:2px; border-radius:4px;">
+                                        <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
+                                        <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                                        <option value="administrator" ${u.role === 'administrator' ? 'selected' : ''}>Administrator</option>
+                                    </select>
+                                ` : `<span style="color:${roleColor}; font-weight:bold;">${u.role}</span>`}
+                            </td>
+                            <td><span style="color:${u.status === 'banned' ? '#ef4444' : '#22c55e'}">${u.status}</span></td>
                             <td>
                                 <button class="mod-btn btn-warn" onclick="moderateUser('${u.id}', 'warn')">Warn</button>
                                 <button class="mod-btn btn-kick" onclick="moderateUser('${u.id}', 'kick')">Kick</button>
@@ -259,46 +264,39 @@
                                     ? `<button class="mod-btn btn-unban" onclick="moderateUser('${u.id}', 'unban')">Unban</button>`
                                     : `<button class="mod-btn btn-ban" onclick="moderateUser('${u.id}', 'ban')">Ban</button>`
                                 }
-                                ${u.muted 
-                                    ? `<button class="mod-btn btn-unban" onclick="moderateUser('${u.id}', 'unmute')">Unmute</button>`
-                                    : `<button class="mod-btn btn-mute" onclick="moderateUser('${u.id}', 'mute')">Mute</button>`
-                                }
-                                <button class="mod-btn btn-pass" onclick="moderateUser('${u.id}', 'reset_password')">Reset Pass</button>
-                                
-                                ${isMaster && u.id !== 'master_admin_root' ? `
-                                    ${u.role === 'moderator' 
-                                        ? `<button class="mod-btn btn-del" onclick="moderateUser('${u.id}', 'demote_mod')">Demote Mod</button>` 
-                                        : `<button class="mod-btn btn-mod" onclick="moderateUser('${u.id}', 'promote_mod')">Make Mod</button>`
-                                    }
-                                    <button class="mod-btn btn-del" onclick="moderateUser('${u.id}', 'delete_account')">Delete</button>
-                                ` : ''}
+                                ${isMaster && u.id !== 'master_admin_root' ? `<button class="mod-btn btn-del" onclick="moderateUser('${u.id}', 'delete_account')">Delete</button>` : ''}
                             </td>
                         </tr>
                     `;
                 }
                 html += `</tbody></table>`;
                 tableContainer.innerHTML = html;
-
-                if (logs.length > 0) {
-                    let logHtml = `<h3>🛡️ Security Audit Logs</h3><table><thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead><tbody>`;
-                    for (let log of logs) {
-                        logHtml += `<tr><td>${log.timestamp}</td><td><strong>${log.username}</strong></td><td><span style="color: #ef4444;">${log.action}</span></td><td>${log.content}</td></tr>`;
-                    }
-                    logHtml += `</tbody></table>`;
-                    logsContainer.innerHTML = logHtml;
-                } else {
-                    logsContainer.innerHTML = `<h3>🛡️ Security Audit Logs</h3><p>No activity logged yet.</p>`;
-                }
-
             } catch (err) {
                 document.getElementById('owner-error').innerText = err.message;
+            }
+        }
+
+        async function changeUserRole(targetUserId, newRole) {
+            const adminId = localStorage.getItem('nexus_userid');
+            try {
+                const res = await fetch('/api/admin/moderate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminId, targetUserId, action: 'change_role', newRole })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                document.getElementById('owner-success').innerText = data.message;
+                fetchOwnerUsers();
+            } catch (err) {
+                alert(err.message);
             }
         }
 
         async function triggerBroadcast() {
             const adminId = localStorage.getItem('nexus_userid');
             const message = document.getElementById('broadcast-input').value;
-            if (!message) return alert('Please type a broadcast message.');
+            if (!message) return alert('Type a message first.');
 
             try {
                 const res = await fetch('/api/admin/moderate', {
@@ -311,7 +309,6 @@
 
                 document.getElementById('owner-success').innerText = data.message;
                 document.getElementById('broadcast-input').value = '';
-                fetchOwnerUsers();
             } catch (err) {
                 alert(err.message);
             }
@@ -321,7 +318,7 @@
             const adminId = localStorage.getItem('nexus_userid');
             let message = '';
             if (action === 'warn') {
-                message = prompt(`Enter warning message for user ID ${targetUserId}:`);
+                message = prompt('Enter warning note:');
                 if (!message) return;
             }
 
@@ -382,9 +379,7 @@
         }
 
         function signOut() {
-            localStorage.removeItem('nexus_username');
-            localStorage.removeItem('nexus_userid');
-            localStorage.removeItem('nexus_role');
+            localStorage.clear();
             currentAuthView = 'signin';
             renderAuthUI();
         }
@@ -409,10 +404,25 @@
             const container = document.getElementById('chat-container');
             const text = input.value.trim();
             const userId = localStorage.getItem('nexus_userid');
+            
+            if (!userId) {
+                alert('Access Denied: You must sign up via signup/servicename.onrender.com first!');
+                return;
+            }
+
             if (!text) return;
 
             appendMessage(text, 'user');
             input.value = '';
+            container.scrollTop = container.scrollHeight;
+
+            // Show thinking pose/bubble element
+            const thinkingId = 'thinking_' + Date.now();
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.id = thinkingId;
+            thinkingDiv.className = 'message thinking-bubble';
+            thinkingDiv.innerText = '✨ AI is thinking...';
+            container.appendChild(thinkingDiv);
             container.scrollTop = container.scrollHeight;
 
             try {
@@ -421,10 +431,13 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: text, userId })
                 });
-                const data = await res.json();
                 
+                // Remove thinking bubble
+                document.getElementById(thinkingId)?.remove();
+
+                const data = await res.json();
                 if (!res.ok) {
-                    if (res.status === 403) {
+                    if (res.status === 401 || res.status === 403) {
                         alert(data.error);
                         signOut();
                         return;
@@ -438,7 +451,8 @@
                     appendMessage(data.reply, 'ai');
                 }
             } catch (err) {
-                appendMessage(err.message || "Error connecting to agent.", 'ai', true);
+                document.getElementById(thinkingId)?.remove();
+                appendMessage(err.message || "Error connecting to AI.", 'ai', true);
             }
             container.scrollTop = container.scrollHeight;
         }
@@ -467,7 +481,7 @@
 
         function clearHistory() {
             localStorage.removeItem('nexus_chat_history');
-            document.getElementById('chat-container').innerHTML = `<div class="message ai">History cleared. How can I help you today?</div>`;
+            document.getElementById('chat-container').innerHTML = `<div class="message ai">History cleared. Ready when you are!</div>`;
         }
     </script>
 </body>
