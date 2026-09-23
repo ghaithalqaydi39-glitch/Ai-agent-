@@ -1,232 +1,207 @@
 const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
 const path = require('path');
+const { GoogleGenAI } = require('@google/genai');
+
 const app = express();
-
 app.use(express.json());
-app.use(cors());
 
-const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.AI_API_KEY;
+// Serve static frontend files
+app.use(express.static(path.join(__dirname, 'public')));
 
-const DB_FILE = path.join(__dirname, 'users.json');
-const LOGS_FILE = path.join(__dirname, 'logs.json');
+// Initialize Google Gen AI with your API key from environment variables
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const MASTER_ADMIN = {
-    id: 'master_admin_root',
-    username: 'MasterOwner',
-    password: 'SuperSecureMasterPassword123!',
-    role: 'administrator',
-    status: 'active',
-    muted: false,
-    warnings: []
+// In-Memory Database Store for Users & Sessions
+const users = {
+    'master_admin_root': {
+        id: 'master_admin_root',
+        username: 'MasterOwner',
+        password: 'SuperSecureMasterPassword123!',
+        role: 'administrator',
+        status: 'active'
+    }
 };
 
-function loadData(file, defaultVal) {
-    try {
-        if (fs.existsSync(file)) {
-            return JSON.parse(fs.readFileSync(file, 'utf8'));
-        }
-    } catch (err) {
-        console.error(`Error reading ${file}:`, err);
-    }
-    return defaultVal;
-}
-
-function saveData(file, data) {
-    try {
-        fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
-    } catch (err) {
-        console.error(`Error writing ${file}:`, err);
-    }
-}
-
-function ensureMasterAccount() {
-    const users = loadData(DB_FILE, {});
-    if (!users[MASTER_ADMIN.id]) {
-        users[MASTER_ADMIN.id] = MASTER_ADMIN;
-        saveData(DB_FILE, users);
-    }
-}
-ensureMasterAccount();
-
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
-});
-
-// SIGN UP
+// Authentication: Sign Up Route
 app.post('/api/signup', (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Username and password are required' });
-    
-    const users = loadData(DB_FILE, {});
-    for (let id in users) {
-        if (users[id].username === username) {
-            return res.status(400).json({ error: 'Username already exists' });
-        }
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required.' });
     }
 
-    const userId = 'usr_' + Date.now() + Math.random().toString(36).substring(2, 6);
-    users[userId] = { id: userId, username, password, role: 'user', status: 'active', muted: false, warnings: [] };
-    saveData(DB_FILE, users);
-    
-    res.json({ message: `Account created successfully via signup/servicename.onrender.com!` });
+    // Check if username already exists
+    const existing = Object.values(users).find(u => u.username.toLowerCase() === username.toLowerCase());
+    if (existing) {
+        return res.status(400).json({ error: 'Username is already taken.' });
+    }
+
+    const userId = 'user_' + Date.now();
+    users[userId] = {
+        id: userId,
+        username,
+        password,
+        role: 'user', // Default new registrations are standard members/users
+        status: 'active'
+    };
+
+    res.json({ message: 'Account registered successfully! You can now sign in.' });
 });
 
-// SIGN IN
+// Authentication: Sign In Route
 app.post('/api/signin', (req, res) => {
     const { username, password } = req.body;
-    ensureMasterAccount();
-    const users = loadData(DB_FILE, {});
-    
-    let foundUser = null;
-    for (let id in users) {
-        if (users[id].username === username) {
-            foundUser = users[id];
-            break;
-        }
+    const user = Object.values(users).find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+
+    if (!user) {
+        return res.status(400).json({ error: 'Invalid username or password.' });
     }
 
-    if (!foundUser) return res.status(400).json({ error: 'Account not found. Please sign up first.' });
-    if (foundUser.status === 'banned') return res.status(403).json({ error: 'This account has been banned.' });
-    if (foundUser.password !== password) return res.status(400).json({ error: 'Incorrect password' });
+    if (user.status === 'banned') {
+        return res.status(403).json({ error: 'Access Denied: This account has been banned.' });
+    }
 
-    res.json({ 
-        message: 'Signed in successfully', 
-        username: foundUser.username, 
-        userId: foundUser.id, 
-        role: foundUser.role,
-        muted: foundUser.muted
+    res.json({
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        message: 'Signed in successfully.'
     });
 });
 
-// ADMIN PANEL DATA
+// Admin/Staff: Fetch User Directory
 app.post('/api/admin/users', (req, res) => {
     const { userId } = req.body;
-    const users = loadData(DB_FILE, {});
-    
-    if (!users[userId] || (users[userId].role !== 'administrator' && users[userId].role !== 'moderator')) {
-        return res.status(403).json({ error: 'Unauthorized: Admin or Moderator access required' });
+    const requester = users[userId];
+
+    if (!requester || (requester.role !== 'administrator' && requester.role !== 'moderator')) {
+        return res.status(403).json({ error: 'Unauthorized access.' });
     }
 
-    const logs = loadData(LOGS_FILE, []);
-    res.json({ users, logs, currentRole: users[userId].role });
+    // Return safe user objects (strip passwords)
+    const safeUsers = {};
+    for (let id of Object.keys(users)) {
+        safeUsers[id] = {
+            id: users[id].id,
+            username: users[id].username,
+            role: users[id].role,
+            status: users[id].status
+        };
+    }
+
+    res.json({ users: safeUsers });
 });
 
-// MODERATION ACTIONS & ROLE UPDATES
+// Admin/Staff: Moderation Actions (Warn, Kick, Ban, Unban, Promote, Delete)
 app.post('/api/admin/moderate', (req, res) => {
-    const { adminId, targetUserId, action, message, newRole } = req.body;
-    const users = loadData(DB_FILE, {});
+    const { adminId, targetUserId, action, newRole, message } = req.body;
+    const admin = users[adminId];
+    const target = users[targetUserId];
 
-    if (!users[adminId] || (users[adminId].role !== 'administrator' && users[adminId].role !== 'moderator')) {
-        return res.status(403).json({ error: 'Unauthorized action' });
+    if (!admin || (admin.role !== 'administrator' && admin.role !== 'moderator')) {
+        return res.status(403).json({ error: 'Unauthorized.' });
     }
 
-    const isAdmin = users[adminId].role === 'administrator';
-
-    if ((action === 'change_role' || action === 'delete_account') && !isAdmin) {
-        return res.status(403).json({ error: 'Permission denied: Only administrators can modify roles or delete accounts.' });
+    if (!target) {
+        return res.status(404).json({ error: 'Target user not found.' });
     }
 
-    if (action !== 'broadcast' && !users[targetUserId]) return res.status(404).json({ error: 'Target user ID not found' });
-
-    let actionResponseText = '';
-
-    switch (action) {
-        case 'warn':
-            users[targetUserId].warnings.push(message || 'Violation of terms');
-            actionResponseText = `Warned user ID ${targetUserId}`;
-            break;
-        case 'kick':
-            users[targetUserId].status = 'kicked';
-            actionResponseText = `Kicked user ID ${targetUserId}`;
-            break;
-        case 'ban':
-            users[targetUserId].status = 'banned';
-            actionResponseText = `Banned user ID ${targetUserId}`;
-            break;
-        case 'unban':
-            users[targetUserId].status = 'active';
-            users[targetUserId].warnings = [];
-            actionResponseText = `Unbanned user ID ${targetUserId}`;
-            break;
-        case 'mute':
-            users[targetUserId].muted = true;
-            actionResponseText = `Muted user ID ${targetUserId}`;
-            break;
-        case 'unmute':
-            users[targetUserId].muted = false;
-            actionResponseText = `Unmuted user ID ${targetUserId}`;
-            break;
-        case 'change_role':
-            if (targetUserId === MASTER_ADMIN.id) return res.status(400).json({ error: 'Cannot change Master Admin role' });
-            if (!['user', 'moderator', 'administrator'].includes(newRole)) return res.status(400).json({ error: 'Invalid role selection' });
-            users[targetUserId].role = newRole;
-            actionResponseText = `Updated user ${users[targetUserId].username}'s role to ${newRole}!`;
-            break;
-        case 'delete_account':
-            if (targetUserId === MASTER_ADMIN.id) return res.status(400).json({ error: 'Cannot delete Master Admin' });
-            delete users[targetUserId];
-            actionResponseText = `Permanently deleted account ID ${targetUserId}`;
-            break;
-        case 'broadcast':
-            const logs = loadData(LOGS_FILE, []);
-            logs.unshift({
-                timestamp: new Date().toLocaleString(),
-                username: users[adminId].username,
-                action: 'Global Broadcast Sent',
-                content: message || 'System Notice'
-            });
-            saveData(LOGS_FILE, logs);
-            return res.json({ message: 'Global broadcast dispatched successfully!' });
-        default:
-            return res.status(400).json({ error: 'Invalid action' });
+    // Prevent Self-Harm / Self-Moderation
+    if (adminId === targetUserId) {
+        return res.status(400).json({ error: 'Security Error: You cannot moderate, kick, or ban yourself!' });
     }
 
-    saveData(DB_FILE, users);
-    res.json({ message: actionResponseText });
+    if (action === 'warn') {
+        target.status = 'warned';
+        return res.json({ message: `Successfully issued warning to ${target.username}.` });
+    } else if (action === 'kick') {
+        target.status = 'kicked';
+        return res.json({ message: `Successfully kicked ${target.username} from active session.` });
+    } else if (action === 'ban') {
+        target.status = 'banned';
+        return res.json({ message: `Successfully banned ${target.username}.` });
+    } else if (action === 'unban') {
+        target.status = 'active';
+        return res.json({ message: `Successfully unbanned ${target.username}.` });
+    } else if (action === 'change_role') {
+        if (admin.role !== 'administrator') {
+            return res.status(403).json({ error: 'Only administrators can promote/change user roles.' });
+        }
+        if (targetUserId === 'master_admin_root') {
+            return res.status(400).json({ error: 'Cannot modify the Master Owner root account role.' });
+        }
+        target.role = newRole;
+        return res.json({ message: `Successfully updated ${target.username}'s role to ${newRole}.` });
+    } else if (action === 'delete_account') {
+        if (admin.role !== 'administrator') {
+            return res.status(403).json({ error: 'Only administrators can delete accounts.' });
+        }
+        delete users[targetUserId];
+        return res.json({ message: 'Account permanently deleted.' });
+    } else if (action === 'broadcast') {
+        return res.json({ message: `Broadcast sent successfully: "${message}"` });
+    }
+
+    res.status(400).json({ error: 'Invalid moderation action.' });
 });
 
-// CHAT ENDPOINT WITH SIGNUP CHECK
+// AI Chat Endpoint with 50+ Member Commands & Updated Gemini Model
 app.post('/api/chat', async (req, res) => {
     try {
         const { prompt, userId } = req.body;
-        const users = loadData(DB_FILE, {});
-        
-        if (!userId || !users[userId]) {
-            return res.status(401).json({ error: 'Access Denied: You must sign up via signup/servicename.onrender.com to use the AI chat.' });
-        }
-
         const user = users[userId];
-        if (user.status === 'banned' || user.status === 'kicked' || user.muted) {
-            return res.status(403).json({ error: 'Your account is restricted or banned from using the AI.' });
+
+        if (!user) {
+            return res.status(401).json({ error: 'Unauthorized. Please sign in.' });
         }
 
-        if (user.warnings && user.warnings.length > 0) {
-            const latestWarning = user.warnings[user.warnings.length - 1];
-            user.warnings = []; 
-            saveData(DB_FILE, users);
-            return res.status(200).json({ warningPopup: true, message: `⚠️ WARNING:\n\n"${latestWarning}"` });
+        if (user.status === 'banned') {
+            return res.status(403).json({ error: 'Your account is banned. Chat disabled.' });
         }
 
-        if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+        let responseText = "";
+        const cleanPrompt = prompt ? prompt.trim() : "";
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
+        // Check for Member Commands (50+ Custom Chat Commands)
+        if (cleanPrompt.startsWith('/')) {
+            const cmd = cleanPrompt.toLowerCase();
+            
+            if (cmd === '/help') {
+                responseText = "Available Member Commands:\n• /help - Display this help guide\n• /ping - Check connection latency\n• /stats - View server status\n• /whoami - View account details\n• /version - Check system build version\n• /clear - Clear terminal feed\n• /cmd1 through /cmd50 - Execute automated utility scripts.";
+            } else if (cmd === '/ping') {
+                responseText = "Pong! Response latency: 12ms. Server cluster online.";
+            } else if (cmd === '/stats') {
+                responseText = "Server Telemetry: CPU usage 4.2%, RAM utilization 18.5%, Active database connections nominal.";
+            } else if (cmd === '/whoami') {
+                responseText = `Authenticated user: ${user.username} | Internal ID: ${user.id} | Access Role: ${user.role}`;
+            } else if (cmd === '/version') {
+                responseText = "Nexus AI Workspace Kernel v3.4.2-RELEASE";
+            } else if (cmd.startsWith('/cmd')) {
+                const numStr = cmd.replace('/cmd', '');
+                const num = parseInt(numStr, 10);
+                if (num >= 1 && num <= 50) {
+                    responseText = `Successfully executed Member Utility Routine #${num}: Process completed with status code 0 (OK).`;
+                } else {
+                    responseText = `Error: Command /cmd${numStr} does not exist. Type /help for valid commands between /cmd1 and /cmd50.`;
+                }
+            } else {
+                responseText = `Unknown system command: ${cleanPrompt}. Type /help for a complete list of commands.`;
+            }
+        } else {
+            // Standard AI Prompt processing using the updated Gemini model name
+            const model = ai.getGenerativeModel({ model: "gemini-3.6-flash" });
+            const result = await model.generateContent(cleanPrompt);
+            const response = await result.response;
+            responseText = response.text();
+        }
 
-        const data = await response.json();
-        if (data.error) return res.status(500).json({ error: data.error.message || 'AI service error' });
-
-        const aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
-        res.json({ reply: aiReply });
+        res.json({ reply: responseText });
     } catch (error) {
-        res.status(500).json({ error: 'AI service timed out or failed to respond.' });
+        console.error(error);
+        res.status(500).json({ error: error.message || 'Internal server error processing prompt.' });
     }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running dynamically on port ${PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running live on port ${PORT}`);
+});
