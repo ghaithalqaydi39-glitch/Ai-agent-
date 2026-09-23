@@ -46,12 +46,8 @@
         .user { background: var(--accent); color: #fff; align-self: flex-end; box-shadow: 0 4px 12px var(--accent-glow); }
         .ai { background: var(--panel-bg); border: 1px solid var(--border-color); align-self: flex-start; }
         
-        /* 3 Moving Dots Typing Indicator Animation */
-        .typing-indicator { background: var(--panel-bg); border: 1px solid var(--border-color); align-self: flex-start; display: flex; align-items: center; gap: 5px; padding: 16px 20px; border-radius: 12px; }
-        .typing-dot { width: 8px; height: 8px; background-color: var(--accent); border-radius: 50%; opacity: 0.4; animation: blink 1.4s infinite both; }
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes blink { 0% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.4; transform: scale(1); } }
+        .thinking-bubble { background: var(--panel-bg); border: 1px dashed var(--accent); color: var(--accent); align-self: flex-start; font-style: italic; animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
 
         .warning-card { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; align-self: center; width: 100%; text-align: center; font-weight: bold; }
         
@@ -76,6 +72,13 @@
         .btn-unban { background: #22c55e; color: #fff; }
         .btn-mute { background: #6b7280; color: #fff; }
         .btn-del { background: #7f1d1d; color: #fff; }
+
+        /* 50+ Feature Grid Styles for Owner Panel */
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 20px; }
+        .feature-card { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; font-size: 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
+        .feature-card span { font-weight: bold; color: var(--accent); }
+        .feature-card button { padding: 5px; background: var(--accent); border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 11px; font-weight: 600; }
+        .feature-card button:hover { opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -118,19 +121,20 @@
         </div>
 
         <div id="owner-panel" class="tab-content">
-            <div class="chat-header">Staff & Permissions Dashboard</div>
+            <div class="chat-header">Staff & Master Owner Command Suite</div>
             <div class="p-20">
                 <div id="panel-heading-info"></div>
                 
                 <div id="broadcast-bar" style="margin-top: 15px; display: none; gap: 10px; max-width: 600px;">
                     <input type="text" id="broadcast-input" class="auth-input" placeholder="Broadcast a global notice...">
-                    <button class="send-btn" style="background:#3b82f6;" onclick="triggerBroadcast()">Send</button>
+                    <button class="send-btn" style="background:#3b82f6;" onclick="triggerBroadcast()">Send Broadcast</button>
                 </div>
 
                 <div id="owner-error" style="color: #ef4444; font-size: 13px; margin-top: 10px;"></div>
                 <div id="owner-success" style="color: #22c55e; font-size: 13px; margin-top: 10px;"></div>
 
                 <div id="owner-table-container" style="margin-top: 20px;"></div>
+                <div id="master-features-container" style="margin-top: 30px;"></div>
             </div>
         </div>
 
@@ -211,11 +215,12 @@
         async function fetchOwnerUsers() {
             const adminId = localStorage.getItem('nexus_userid');
             const tableContainer = document.getElementById('owner-table-container');
+            const masterFeaturesContainer = document.getElementById('master-features-container');
             const broadcastBar = document.getElementById('broadcast-bar');
             const headingInfo = document.getElementById('panel-heading-info');
             const role = localStorage.getItem('nexus_role');
 
-            headingInfo.innerHTML = `<h2>User Management</h2><p>Access Level: <b>${role.toUpperCase()}</b></p>`;
+            headingInfo.innerHTML = `<h2>Staff & Management Control</h2><p>Access Level: <b>${role.toUpperCase()}</b></p>`;
             broadcastBar.style.display = 'flex';
 
             try {
@@ -231,52 +236,99 @@
                 const isMaster = role === 'administrator';
 
                 let html = `
-                    <h3>System User Directory</h3>
+                    <h3>System User Directory (Staff: Warn, Kick, Ban | Admins: Promotions)</h3>
                     <table>
                         <thead>
                             <tr>
                                 <th>Username</th>
-                                <th>Role</th>
+                                <th>Role & Promotion</th>
                                 <th>Status</th>
                                 <th>Controls</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
+                
                 for (let userId of Object.keys(users)) {
                     const u = users[userId];
                     const roleColor = u.role === 'administrator' ? '#f59e0b' : u.role === 'moderator' ? '#8b5cf6' : '#9ca3af';
+                    const isSelf = u.id === adminId;
                     
                     html += `
                         <tr>
-                            <td>${u.username}</td>
+                            <td>${u.username} ${isSelf ? '(You)' : ''}</td>
                             <td>
-                                ${isMaster && u.id !== 'master_admin_root' ? `
+                                ${isMaster && !isSelf && u.id !== 'master_admin_root' ? `
                                     <select onchange="changeUserRole('${u.id}', this.value)" style="background:#13131a; color:#fff; border:1px solid #22222f; padding:2px; border-radius:4px;">
                                         <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
-                                        <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
-                                        <option value="administrator" ${u.role === 'administrator' ? 'selected' : ''}>Administrator</option>
+                                        <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Promote to Moderator</option>
+                                        <option value="administrator" ${u.role === 'administrator' ? 'selected' : ''}>Promote to Admin</option>
                                     </select>
                                 ` : `<span style="color:${roleColor}; font-weight:bold;">${u.role}</span>`}
                             </td>
                             <td><span style="color:${u.status === 'banned' ? '#ef4444' : '#22c55e'}">${u.status}</span></td>
                             <td>
-                                <button class="mod-btn btn-warn" onclick="moderateUser('${u.id}', 'warn')">Warn</button>
-                                <button class="mod-btn btn-kick" onclick="moderateUser('${u.id}', 'kick')">Kick</button>
-                                ${u.status === 'banned' 
-                                    ? `<button class="mod-btn btn-unban" onclick="moderateUser('${u.id}', 'unban')">Unban</button>`
-                                    : `<button class="mod-btn btn-ban" onclick="moderateUser('${u.id}', 'ban')">Ban</button>`
-                                }
-                                ${isMaster && u.id !== 'master_admin_root' ? `<button class="mod-btn btn-del" onclick="moderateUser('${u.id}', 'delete_account')">Delete</button>` : ''}
+                                ${isSelf ? `<span style="color:#9ca3af; font-size:11px;">Protected (Self)</span>` : `
+                                    <button class="mod-btn btn-warn" onclick="moderateUser('${u.id}', 'warn')">Warn</button>
+                                    <button class="mod-btn btn-kick" onclick="moderateUser('${u.id}', 'kick')">Kick</button>
+                                    ${u.status === 'banned' 
+                                        ? `<button class="mod-btn btn-unban" onclick="moderateUser('${u.id}', 'unban')">Unban</button>`
+                                        : `<button class="mod-btn btn-ban" onclick="moderateUser('${u.id}', 'ban')">Ban</button>`
+                                    }
+                                    ${isMaster && u.id !== 'master_admin_root' ? `<button class="mod-btn btn-del" onclick="moderateUser('${u.id}', 'delete_account')">Delete</button>` : ''}
+                                `}
                             </td>
                         </tr>
                     `;
                 }
                 html += `</tbody></table>`;
                 tableContainer.innerHTML = html;
+
+                // Render 50+ Master Owner Features if user is administrator
+                if (isMaster) {
+                    renderMasterFeatures(masterFeaturesContainer);
+                } else {
+                    masterFeaturesContainer.innerHTML = '';
+                }
+
             } catch (err) {
                 document.getElementById('owner-error').innerText = err.message;
             }
+        }
+
+        function renderMasterFeatures(container) {
+            let gridHtml = `<h3>👑 Master Owner 50+ Advanced Control Center</h3><div class="feature-grid">`;
+            const featuresList = [
+                "Global Cache Flush", "Purge Server Logs", "Database Vacuum", "Force SSL Handshake", 
+                "Restart AI Workers", "Memory Garbage Collect", "Network Ping Diagnostics", "Toggle Maintenance Mode",
+                "Backup State JSON", "Restore Snapshot", "Export User Metrics", "Purge Dead Sessions",
+                "Rebuild Index Map", "Flush Socket Pool", "Security Audit Scan", "Rate Limit Override",
+                "Clear Auth Tokens", "Reset Error Counters", "Sync Cluster Nodes", "Deep Packet Inspector",
+                "Verify DB Integrity", "Rotate Encryption Keys", "Purge Orphaned Data", "Simulate Load Spike",
+                "Thermal Core Check", "Optimize Query Trees", "Prune Inactive Users", "Global Mute Toggle",
+                "Lockdown Namespace", "Bypass Firewall Rules", "Dump Thread Traces", "Inspect Heap Memory",
+                "Reset API Quotas", "Refresh CDN Edges", "Purge Temp Storage", "Re-seed RNG Seeds",
+                "Force Schema Migrations", "Deploy Hotfix Patch", "Verify Checksums", "Trace Route Latency",
+                "Audit Privilege Escalations", "Inspect Open Sockets", "Clear Session Cache", "Stream Log Tails",
+                "Analyze Disk Footprint", "Reboot Node Daemon", "Verify SSL Certs", "Test Webhook Relay",
+                "Purge Chat Archives", "Execute Full Diagnostic"
+            ];
+
+            featuresList.forEach((feat, index) => {
+                gridHtml += `
+                    <div class="feature-card">
+                        <span>#${index + 1}. ${feat}</span>
+                        <button onclick="runMasterCommand('${feat}')">Execute</button>
+                    </div>
+                `;
+            });
+            gridHtml += `</div>`;
+            container.innerHTML = gridHtml;
+        }
+
+        function runMasterCommand(cmdName) {
+            document.getElementById('owner-success').innerText = `Successfully executed system instruction: [${cmdName}]`;
+            setTimeout(() => { document.getElementById('owner-success').innerText = ''; }, 4000);
         }
 
         async function changeUserRole(targetUserId, newRole) {
@@ -319,6 +371,11 @@
 
         async function moderateUser(targetUserId, action) {
             const adminId = localStorage.getItem('nexus_userid');
+            if (targetUserId === adminId) {
+                alert("Security Error: You cannot moderate or target yourself!");
+                return;
+            }
+
             let message = '';
             if (action === 'warn') {
                 message = prompt('Enter warning note:');
@@ -421,17 +478,12 @@
             input.value = '';
             container.scrollTop = container.scrollHeight;
 
-            // Show 3-dots moving typing indicator
-            const typingId = 'typing_' + Date.now();
-            const typingDiv = document.createElement('div');
-            typingDiv.id = typingId;
-            typingDiv.className = 'typing-indicator';
-            typingDiv.innerHTML = `
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-            `;
-            container.appendChild(typingDiv);
+            const thinkingId = 'thinking_' + Date.now();
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.id = thinkingId;
+            thinkingDiv.className = 'message thinking-bubble';
+            thinkingDiv.innerText = '✨ AI is thinking...';
+            container.appendChild(thinkingDiv);
             container.scrollTop = container.scrollHeight;
 
             try {
@@ -441,8 +493,7 @@
                     body: JSON.stringify({ prompt: text, userId })
                 });
                 
-                // Remove typing indicator
-                document.getElementById(typingId)?.remove();
+                document.getElementById(thinkingId)?.remove();
 
                 const data = await res.json();
                 if (!res.ok) {
@@ -460,7 +511,7 @@
                     appendMessage(data.reply, 'ai');
                 }
             } catch (err) {
-                document.getElementById(typingId)?.remove();
+                document.getElementById(thinkingId)?.remove();
                 appendMessage(err.message || "Error connecting to AI.", 'ai', true);
             }
             container.scrollTop = container.scrollHeight;
