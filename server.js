@@ -5,16 +5,16 @@ const { GoogleGenAI } = require('@google/genai');
 const app = express();
 app.use(express.json());
 
-// Serve static frontend files
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static frontend files directly from the root project directory
+app.use(express.static(path.join(__dirname)));
 
-// Explicit root routes to fix "Cannot GET /" and direct navigation
+// Explicit root routes to resolve file location issues
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.get('/signup', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Initialize Google Gen AI with your API key from environment variables
@@ -112,7 +112,6 @@ app.post('/api/admin/moderate', (req, res) => {
         return res.status(404).json({ error: 'Target user not found.' });
     }
 
-    // Prevent Self-Harm / Self-Moderation
     if (adminId === targetUserId) {
         return res.status(400).json({ error: 'Security Error: You cannot moderate, kick, or ban yourself!' });
     }
