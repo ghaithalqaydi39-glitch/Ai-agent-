@@ -8,6 +8,15 @@ app.use(express.json());
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Explicit root routes to fix "Cannot GET /" and direct navigation
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/signup', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Initialize Google Gen AI with your API key from environment variables
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -29,7 +38,6 @@ app.post('/api/signup', (req, res) => {
         return res.status(400).json({ error: 'Username and password are required.' });
     }
 
-    // Check if username already exists
     const existing = Object.values(users).find(u => u.username.toLowerCase() === username.toLowerCase());
     if (existing) {
         return res.status(400).json({ error: 'Username is already taken.' });
@@ -40,7 +48,7 @@ app.post('/api/signup', (req, res) => {
         id: userId,
         username,
         password,
-        role: 'user', // Default new registrations are standard members/users
+        role: 'user',
         status: 'active'
     };
 
@@ -77,7 +85,6 @@ app.post('/api/admin/users', (req, res) => {
         return res.status(403).json({ error: 'Unauthorized access.' });
     }
 
-    // Return safe user objects (strip passwords)
     const safeUsers = {};
     for (let id of Object.keys(users)) {
         safeUsers[id] = {
@@ -187,7 +194,6 @@ app.post('/api/chat', async (req, res) => {
                 responseText = `Unknown system command: ${cleanPrompt}. Type /help for a complete list of commands.`;
             }
         } else {
-            // Standard AI Prompt processing using the updated Gemini model name
             const model = ai.getGenerativeModel({ model: "gemini-3.6-flash" });
             const result = await model.generateContent(cleanPrompt);
             const response = await result.response;
