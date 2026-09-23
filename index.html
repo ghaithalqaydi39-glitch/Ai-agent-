@@ -18,8 +18,7 @@
         body { background: var(--bg-color); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
         sidebar { width: 300px; background: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: space-between; padding: 20px; overflow-y: auto; }
-        .logo { font-size: 18px; font-weight: bold; background: linear-gradient(90deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
-        .domain-notice { font-size: 11px; color: var(--accent); background: rgba(168, 85, 247, 0.1); padding: 8px; border-radius: 6px; margin-bottom: 20px; border: 1px dashed var(--accent); word-break: break-all; }
+        .logo { font-size: 18px; font-weight: bold; background: linear-gradient(90deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; }
         
         .nav-links { display: flex; flex-direction: column; gap: 8px; flex: 1; }
         .nav-btn { background: transparent; border: none; color: var(--text-muted); padding: 12px 16px; text-align: left; border-radius: 8px; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px; }
@@ -47,9 +46,12 @@
         .user { background: var(--accent); color: #fff; align-self: flex-end; box-shadow: 0 4px 12px var(--accent-glow); }
         .ai { background: var(--panel-bg); border: 1px solid var(--border-color); align-self: flex-start; }
         
-        /* Thinking animation indicator */
-        .thinking-bubble { background: var(--panel-bg); border: 1px dashed var(--accent); color: var(--accent); align-self: flex-start; font-style: italic; animation: pulse 1.2s infinite; }
-        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        /* 3 Moving Dots Typing Indicator Animation */
+        .typing-indicator { background: var(--panel-bg); border: 1px solid var(--border-color); align-self: flex-start; display: flex; align-items: center; gap: 5px; padding: 16px 20px; border-radius: 12px; }
+        .typing-dot { width: 8px; height: 8px; background-color: var(--accent); border-radius: 50%; opacity: 0.4; animation: blink 1.4s infinite both; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.4; transform: scale(1); } }
 
         .warning-card { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; align-self: center; width: 100%; text-align: center; font-weight: bold; }
         
@@ -81,7 +83,6 @@
     <sidebar>
         <div>
             <div class="logo">⚡ Nexus AI Workspace</div>
-            <div class="domain-notice">🔗 Portal: <b>signup/servicename.onrender.com</b></div>
             <div class="nav-links">
                 <button class="nav-btn active" onclick="switchTab('chat', event)">💬 AI Chat</button>
                 <button class="nav-btn" onclick="switchTab('tools', event)">🛠️ Quick Tools</button>
@@ -96,7 +97,7 @@
         <div id="chat" class="tab-content active">
             <div class="chat-header">Interactive Neural Feed</div>
             <div id="chat-container">
-                <div class="message ai">Welcome! Make sure you are signed up via signup/servicename.onrender.com to chat.</div>
+                <div class="message ai">Welcome! Please sign up or log in using the sidebar panel to start chatting with the AI.</div>
             </div>
             <div class="input-area">
                 <input type="text" id="user-input" placeholder="Type a message or prompt..." onkeypress="handleKey(event)">
@@ -108,7 +109,7 @@
             <div class="chat-header">Quick Action Shortcuts</div>
             <div class="p-20">
                 <h2>Boost Productivity</h2>
-                <p>Click any shortcut to instantly feed it into the chat channel:</p>
+                <p>Click any shortcut to instantly inject it into the chat channel:</p>
                 <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                     <button class="send-btn" onclick="quickPrompt('Write a clean JavaScript utility function')">JS Utility Function</button>
                     <button class="send-btn" onclick="quickPrompt('Give me 3 creative business startup ideas')">Startup Ideas</button>
@@ -154,13 +155,15 @@
         }
 
         let currentAuthView = 'signin';
+        if (window.location.pathname === '/signup') {
+            currentAuthView = 'signup';
+        }
 
         function renderAuthUI(errorMsg = '', successMsg = '') {
             const container = document.getElementById('auth-container');
             const statusText = document.getElementById('session-status');
             const ownerTabBtn = document.getElementById('owner-tab-btn');
             const loggedUser = localStorage.getItem('nexus_username');
-            const loggedId = localStorage.getItem('nexus_userid');
             const role = localStorage.getItem('nexus_role');
 
             if (loggedUser) {
@@ -185,22 +188,22 @@
 
             if (currentAuthView === 'signin') {
                 container.innerHTML = `
-                    <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Sign In</div>
+                    <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Sign In Portal</div>
                     ${successMsg ? `<div class="auth-success">${successMsg}</div>` : ''}
                     ${errorMsg ? `<div class="auth-error">${errorMsg}</div>` : ''}
                     <input type="text" id="auth-username" class="auth-input" placeholder="Username">
                     <input type="password" id="auth-password" class="auth-input" placeholder="Password">
                     <button class="auth-btn" onclick="handleSignIn()">Sign In</button>
-                    <button class="auth-toggle" onclick="currentAuthView='signup'; renderAuthUI();">Need an account? Sign Up</button>
+                    <button class="auth-toggle" onclick="currentAuthView='signup'; history.pushState({}, '', '/signup'); renderAuthUI();">Need an account? Sign Up</button>
                 `;
             } else {
                 container.innerHTML = `
-                    <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Sign Up</div>
+                    <div style="font-weight:600; font-size:13px; margin-bottom:2px;">Sign Up Registration</div>
                     ${errorMsg ? `<div class="auth-error">${errorMsg}</div>` : ''}
-                    <input type="text" id="auth-username" class="auth-input" placeholder="Username">
-                    <input type="password" id="auth-password" class="auth-input" placeholder="Password">
-                    <button class="auth-btn" onclick="handleSignUp()">Register</button>
-                    <button class="auth-toggle" onclick="currentAuthView='signin'; renderAuthUI();">Have an account? Sign In</button>
+                    <input type="text" id="auth-username" class="auth-input" placeholder="Choose Username">
+                    <input type="password" id="auth-password" class="auth-input" placeholder="Choose Password">
+                    <button class="auth-btn" onclick="handleSignUp()">Register Account</button>
+                    <button class="auth-toggle" onclick="currentAuthView='signin'; history.pushState({}, '', '/'); renderAuthUI();">Have an account? Sign In</button>
                 `;
             }
         }
@@ -351,6 +354,7 @@
                 if (!res.ok) throw new Error(data.error);
                 
                 currentAuthView = 'signin';
+                history.pushState({}, '', '/');
                 renderAuthUI('', data.message);
             } catch (err) {
                 renderAuthUI(err.message);
@@ -381,6 +385,7 @@
         function signOut() {
             localStorage.clear();
             currentAuthView = 'signin';
+            history.pushState({}, '', '/signup');
             renderAuthUI();
         }
 
@@ -406,7 +411,7 @@
             const userId = localStorage.getItem('nexus_userid');
             
             if (!userId) {
-                alert('Access Denied: You must sign up via signup/servicename.onrender.com first!');
+                alert('Access Denied: Please sign up or log in using the sidebar panel first!');
                 return;
             }
 
@@ -416,13 +421,17 @@
             input.value = '';
             container.scrollTop = container.scrollHeight;
 
-            // Show thinking pose/bubble element
-            const thinkingId = 'thinking_' + Date.now();
-            const thinkingDiv = document.createElement('div');
-            thinkingDiv.id = thinkingId;
-            thinkingDiv.className = 'message thinking-bubble';
-            thinkingDiv.innerText = '✨ AI is thinking...';
-            container.appendChild(thinkingDiv);
+            // Show 3-dots moving typing indicator
+            const typingId = 'typing_' + Date.now();
+            const typingDiv = document.createElement('div');
+            typingDiv.id = typingId;
+            typingDiv.className = 'typing-indicator';
+            typingDiv.innerHTML = `
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            `;
+            container.appendChild(typingDiv);
             container.scrollTop = container.scrollHeight;
 
             try {
@@ -432,8 +441,8 @@
                     body: JSON.stringify({ prompt: text, userId })
                 });
                 
-                // Remove thinking bubble
-                document.getElementById(thinkingId)?.remove();
+                // Remove typing indicator
+                document.getElementById(typingId)?.remove();
 
                 const data = await res.json();
                 if (!res.ok) {
@@ -451,7 +460,7 @@
                     appendMessage(data.reply, 'ai');
                 }
             } catch (err) {
-                document.getElementById(thinkingId)?.remove();
+                document.getElementById(typingId)?.remove();
                 appendMessage(err.message || "Error connecting to AI.", 'ai', true);
             }
             container.scrollTop = container.scrollHeight;
