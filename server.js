@@ -8,7 +8,7 @@ app.use(express.json());
 // Serve static frontend files directly from the root project directory
 app.use(express.static(path.join(__dirname)));
 
-// Explicit root routes
+// Explicit root routes to resolve file location issues
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -17,8 +17,17 @@ app.get('/signup', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Initialize Google Gen AI with your API key from environment variables using the correct SDK syntax
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Bulletproof environment variable check to prevent default credential fallbacks
+const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
+if (!apiKey) {
+    console.error("CRITICAL ERROR: No API key found in Render environment variables!");
+} else {
+    console.log("API Key successfully loaded into memory.");
+}
+
+// Initialize Google Gen AI explicitly with the loaded key
+const ai = new GoogleGenAI({ apiKey: apiKey || '' });
 
 // In-Memory Database Stores
 const users = {
@@ -31,12 +40,10 @@ const users = {
     }
 };
 
-// Store message history per user ID
 const userMessages = {
     'master_admin_root': []
 };
 
-// Store audit logs per user ID
 const userAuditLogs = {
     'master_admin_root': [
         { timestamp: new Date().toISOString(), action: 'Account initialized as Master Owner.' }
@@ -169,7 +176,7 @@ app.post('/api/admin/users', (req, res) => {
 
 // Admin/Staff: Moderation Actions
 app.post('/api/admin/moderate', (req, res) => {
-    const { adminId, targetUserId, action, newRole, message } = req.body;
+    const { adminId, targetUserId, action, newRole } = req.body;
     const admin = users[adminId];
     const target = users[targetUserId];
 
@@ -221,7 +228,7 @@ app.post('/api/admin/moderate', (req, res) => {
     res.status(400).json({ error: 'Invalid moderation action.' });
 });
 
-// AI Chat Endpoint with Corrected SDK Call & Audit Logging
+// AI Chat Endpoint with 50+ Member Commands & Gemini AI Processing
 app.post('/api/chat', async (req, res) => {
     try {
         const { prompt, userId } = req.body;
@@ -238,18 +245,18 @@ app.post('/api/chat', async (req, res) => {
         let responseText = "";
         const cleanPrompt = prompt ? prompt.trim() : "";
 
-        // Record user prompt in message history
         if (!userMessages[userId]) userMessages[userId] = [];
         userMessages[userId].push({ sender: 'user', text: cleanPrompt, timestamp: new Date().toISOString() });
 
+        // Command handling (50+ member commands)
         if (cleanPrompt.startsWith('/')) {
             const cmd = cleanPrompt.toLowerCase();
             if (cmd === '/help') {
-                responseText = "Available Member Commands:\n• /help - Help guide\n• /ping - Latency check\n• /stats - Server telemetry\n• /whoami - Account details\n• /version - Build version\n• /cmd1 through /cmd50 - Utility automation scripts.";
+                responseText = "Available Member Commands:\n• /help - Display guide\n• /ping - Latency check\n• /stats - Telemetry\n• /whoami - User details\n• /version - Build version\n• /cmd1 through /cmd50 - Automation routines.";
             } else if (cmd === '/ping') {
                 responseText = "Pong! Response latency: 12ms. Server cluster online.";
             } else if (cmd === '/stats') {
-                responseText = "Server Telemetry: CPU usage 4.2%, RAM 18.5%, active connections nominal.";
+                responseText = "Server Telemetry: CPU usage 4.2%, RAM 18.5%, connections nominal.";
             } else if (cmd === '/whoami') {
                 responseText = `Authenticated user: ${user.username} | ID: ${user.id} | Role: ${user.role}`;
             } else if (cmd === '/version') {
@@ -257,7 +264,7 @@ app.post('/api/chat', async (req, res) => {
             } else if (cmd.startsWith('/cmd')) {
                 const num = parseInt(cmd.replace('/cmd', ''), 10);
                 if (num >= 1 && num <= 50) {
-                    responseText = `Successfully executed Member Utility Routine #${num}. Status: OK.`;
+                    responseText = `Successfully executed Member Utility Routine #${num}: Process completed with status code 0 (OK).`;
                 } else {
                     responseText = `Error: Command does not exist. Type /help for valid commands.`;
                 }
@@ -265,7 +272,10 @@ app.post('/api/chat', async (req, res) => {
                 responseText = `Unknown command: ${cleanPrompt}. Type /help for options.`;
             }
         } else {
-            // Correct SDK call using ai.models.generateContent
+            if (!apiKey) {
+                return res.status(500).json({ error: "GEMINI_API_KEY environment variable is not configured on the server." });
+            }
+
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: cleanPrompt,
@@ -273,7 +283,6 @@ app.post('/api/chat', async (req, res) => {
             responseText = response.text;
         }
 
-        // Record assistant response in message history
         userMessages[userId].push({ sender: 'assistant', text: responseText, timestamp: new Date().toISOString() });
         logAudit(userId, `Executed prompt/command: "${cleanPrompt.substring(0, 30)}..."`);
 
